@@ -1,0 +1,15 @@
+#load "lolli/perm.lo".
+
+#load "lolli/lists.lo".
+
+#load "lolli/lolliCop.lo".
+
+#load "ldp/cml.lo".
+
+#load "ldp/ldp.lo".
+
+#load "mcallester/cky2.lo".
+
+#load "atp/forward.lo".
+
+#load "atp/inverse1.lo".

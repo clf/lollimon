@@ -96,6 +96,10 @@ conjunction, '&' is additive conjunction.
 Built-in prefix formula constructors are:  '!', '@' 
 which are the unrestricted and affine modalities.
 
+We also have universal and existential quantifiers represented by 'pi'
+and 'sigma'. "forall x. p" for some formula "p" is conretely
+represented as "pi x \ p x".
+
 ':-' is equivalent to 'o-' and we encourage avoiding its use
 in CLF encodings (it remains in the system for compatibility with
 earlier Lolli programs).
@@ -136,10 +140,6 @@ Do #load again or #clear to obtain a clean state.
 --------------------------------------------------------
 
 Known Bugs:
-
-  Support for user-declared type functions is unstable. The system will 
-accept declarations such as 'pair: type -> type -> type.' but 
-type-checking will be incorrect.
 
   Support for ';' and 'zero' in the monad is unstable. Using monadic clauses with 
 ';' or 'zero' occasionally causes strange system behavior.

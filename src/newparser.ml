@@ -15,7 +15,10 @@ Lexer
  "is" should be lexed as an identifier, but marked as a Kwd (because it's infix)
 ***)
 value lexer = make_lexer ["is"] [
-"#quit"; "#cd"; "#pwd"; "#trace"; "#ordered"; "#query"; "#fair";
+"#quit"; "#cd"; "#pwd"; 
+"#trace"; 
+"#ordered"; "#fair"; "#mode";
+"#query"; 
 "#context"; "#clearctx"; "#contextl";
 "#allsig"; "#signature"; "#clearsig"; 
 "#include"; "#clear"; "#load";

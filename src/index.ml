@@ -301,6 +301,7 @@ value findIdx idx c =
   let rec go = fun [
     [] -> None |
     [Alt alts] -> goAlt alts |
+    [App::idx] -> go idx |
     [h::t] -> if h = c then Some t else None
   ]
   and goAlt = fun [
@@ -311,7 +312,7 @@ value findIdx idx c =
 
 
 value allMon idx = 
-  let idx = findIdx (findIdx [Alt idx.val] App) (Const' "{}" 0) in
+  let idx = findIdx [Alt idx.val] (Const' "{}" 0) in
   let mkTrm tm env =  ExpSub tm (env2sub 0 env) [] in
   let res = ref [] in
   nextTrm False (idx,[]) (fun _ -> res.val) (fun (hd,(idx,env)) kf ->
