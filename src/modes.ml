@@ -10,15 +10,15 @@ value parseModes p =
       [: :] -> myfail ()
     ] |
     Const "->" 0 [_;typ] -> parser [ (*** Const with level -2 are just for mode checking ***)
-      [: `(Kwd "+",_); res = go typ :] -> [Const "+" (-2) []::res] |
-      [: `(Kwd "-",_); res = go typ :] -> [Const "-" (-2) []::res] |
-      [: `(Kwd "*",_); res = go typ :] -> [Const "*" (-2) []::res] |
+      [: `(Kwd "+",_); `(Ident _,_); res = go typ :] -> [Const "+" (-2) []::res] |
+      [: `(Kwd "-",_); `(Ident _,_); res = go typ :] -> [Const "-" (-2) []::res] |
+      [: `(Kwd "*",_); `(Ident _,_); res = go typ :] -> [Const "*" (-2) []::res] |
       [: :] -> myfail ()
     ] |
     Const "pi" 0 [Lam _ typ []] -> go typ |
     _ -> myfail()
-  ] in try
-  go (fst (List.assoc p mysignature.val))
+  ] in 
+  try go (fst (List.assoc p mysignature.val))
   with [e -> myfail()]
 ;
 
@@ -51,7 +51,7 @@ let _ = ps 0 ("checkMode: "^(term2str head)^" | "^(term2str body)^"\n") in
     let rec go = fun [
       (e as (Lam _ _ [_::_] | ExpSub _ _ _)) -> go (expose e) |
       Var _ _ args -> List.iter go args | 
-      Const c 0 args -> 
+      Const c (0 | -1) args -> 
         let args' = (*** ignore implicit type variables for mode analysis ***)
           if useTypes.val then 
             let n = 
