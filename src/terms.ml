@@ -192,7 +192,7 @@ value arrowC ty1 ty2 = Const "->" 0 [ty1;ty2];
 
 value (mysignature : ref (list (string * (term * int)))) = ref [];
 value (signature : ref (list (string * (term * int)))) = ref [
-  ("type", ( Const "kind" 0 [], 0)); 
+  ("type", ( kindC, 0)); 
   ("o", ( typeC, 0));
   ("->", ( arrowC typeC (arrowC typeC typeC), 0));
 

@@ -11,11 +11,17 @@ Description: Implementation of operational semantics of LolliMon
 Author: Jeff Polakow
 ***)
 
-(*************************************** Residuate program clause into
-logically compiled form ****************************************)
+(*************************************** 
+Residuate program clause into logically compiled form 
+****************************************)
 value noResid = ["one";"zero";","; ";"; "sigma"; "!"; "@"; ">"; "=";
 "is"];
 
+(***
+  resid returns a list of ((head,body),isOrdered). A list is necessary
+due to &. EVars are just open bound variables. This is inherited from
+input argument.
+***)
 value rec resid dc =
 let _ = ps 3 ("Residuating: "^(term2str' True dc)^"\n") in
 match expose dc with [

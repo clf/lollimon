@@ -66,9 +66,11 @@ fun [
     [Const' c lvl::List.flatten (List.map (go bvN False) args)] | 
   Var nm idx args -> 
     if idx <= fst bvN then 
+      (*** this is really a bound variable ***)
       (apps (List.length args)) @ 
       [Var' idx::List.flatten (List.map (go bvN False) args)]
     else 
+      (*** this is actually a logic variable, to be generated later ***)
     let rec getNewEVs = fun [
       [] -> [] |
       [EVar _ rf _ args'::args] -> match rf.val with [
@@ -84,8 +86,10 @@ fun [
       [_::args] -> getNewEVs args
     ] in 
     if List.mem (idx - fst bvN) evars.val then 
+      (*** not 1st occurrence of this logic variable in clause ***)
       [FrEV (idx - fst bvN) (getNewEVs args) args]
     else 
+      (*** 1st occurrence of this logic variable in clause ***)
       do {
         evars.val := [idx - fst bvN::evars.val];
         [FreshEV nm (idx - fst bvN) (getNewEVs args) args]

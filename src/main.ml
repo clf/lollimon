@@ -39,7 +39,9 @@ Load up all "module" code
 
 #use "newparser.ml";
 
+(*
 #use "modes.ml";
+*)
 
 #use "index.ml";
 
@@ -275,10 +277,10 @@ let rec go lin aff =
 
     [: `(Kwd "#pwd",_) :] -> 
       do {ps 0 ((Sys.getcwd ())^"\n"); go lin aff} |
-
+(*
     [: `(Kwd "#mode",_); `(Ident p,_); modes = parseModes p :] -> 
       do { allModes.val := [(p,modes)::allModes.val]; go lin aff } |
-
+*)
     [: `(Kwd "#ordered",_); `(Ident p,_) :] -> 
       do { orderedPreds.val := [p::orderedPreds.val]; go lin aff } |
 
