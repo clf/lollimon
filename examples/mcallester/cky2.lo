@@ -1,0 +1,92 @@
+(*
+   CKY parsing
+   David McAllester: On the Complexity Analysis of Static Analyses
+   JACM 49(4), July 2002, pp.512-537
+
+   Scribe: Frank Pfenning
+   Version without the use of integers
+*)
+
+(*
+   Grammars are represented in Chomsky normal form with productions
+
+     rule x (char c).
+     rule x (jux y z).
+
+   where x,y,z represent non-terminals and c represents characters.
+   Strings are represented as assertions
+
+     s i c.
+
+   which means that s(i) = c, 1 <= i <= n where n is the string length.
+   Recognized substrings are represented by
+
+     parse x i j
+
+   which means x -> s(i)...s(j).
+*)
+
+nonterm : type.			(* non-terminals *)
+label : type.			(* substring labels *)
+
+rhs : type.			(* right-hand sides of grammar rules *)
+char : string -> rhs.
+jux : nonterm -> nonterm -> rhs.
+
+rule : nonterm -> rhs -> o.	(* rules *)
+s : string -> label -> label -> o.      (* single characters *)
+parse : nonterm -> label -> label -> o. (* parsed substrings *)
+
+rule X (char C),
+s C L1 L2
+=> {!parse X L1 L2}.
+
+rule X (jux Y Z),
+parse Y L1 L2,
+parse Z L2 L3
+=> {!parse X L1 L3}.
+
+(* initialization *)
+load : label -> list string -> o.
+last : label -> o.
+load L1 (C::Cs)
+-o {sigma l2 \ !s C L1 l2, load l2 Cs}.
+load L1 nil
+-o {last L1}.
+
+(* top-level interface *)
+start : list string -> nonterm -> o.
+start Cs S <= (pi l1 \ load l1 Cs -o {sigma L2 \ last L2, parse S l1 L2}).
+
+
+(*** Examples ***)
+
+(* balanced parentheses *)
+lp : nonterm.
+rp : nonterm.
+close : nonterm.
+bal : nonterm.
+
+rule lp (char "(").
+rule rp (char ")").
+rule bal (jux lp rp).
+rule bal (jux bal bal).
+rule bal (jux lp close).
+rule close (jux bal rp).
+
+#query 1 2 1
+start ("("::"("::")"::"("::")"::")"::nil) bal.
+
+#query 1 2 1
+start ("("::"("::"("::")"::")"::")"::nil) bal.
+
+#query 1 2 1
+start ("("::"("::"("::")"::")"::")"::"("::")"::nil) bal.
+
+#query 0 2 1
+start ("("::")"::"("::nil) bal. (* fails *)
+
+#query 0 2 1
+start (")"::"("::")"::nil) bal. (* fails *)
+
+

@@ -1,0 +1,26 @@
+(*
+   Bottom-up parsing
+   Taking advantage of saturation of unrestricted assumptions
+   Author: Frank Pfenning
+*)
+
+sexpr : type.
+eps : sexpr.
+parens : sexpr -> sexpr.
+jux : sexpr -> sexpr -> sexpr.
+
+load : int -> list string -> sexpr -> o.
+
+char : int -> int -> string -> o.
+sexp : int -> int -> sexpr -> o.
+
+load N (C::Cs) S <= M is N+1, (char N M C => load M Cs S).
+load N nil S <= {sexp 0 N S}.
+
+char I J "(", char J K ")" => {!sexp I K (parens (eps))}.
+(* sexp I I eps. *)
+sexp I J S1, sexp J K S2 => {!sexp I K (jux S1 S2)}.
+char I J "(", sexp J K S, char K L ")" => {!sexp I L (parens S)}.
+
+parse : list string -> sexpr -> o.
+parse Cs S <= load 0 Cs S.

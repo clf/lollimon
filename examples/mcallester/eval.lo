@@ -1,0 +1,94 @@
+(*
+   Evaluation in lambda-calculus with pairing
+   David McAllester: On the Complexity Analysis of Static Analyses
+   JACM 49(4), July 2002, pp.512-537
+
+   Scribe: Frank Pfenning
+*)
+
+(* expressions in deBruijn form *)
+exp : type.
+var : int -> exp.
+pair : exp -> exp -> exp.
+pi1 : exp -> exp.
+pi2 : exp -> exp.
+app : exp -> exp -> exp.
+lam : exp -> exp.
+
+subst : type.			(* substitutions *)
+val : type.			(* values *)
+
+empty : subst.
+bind : val -> subst -> subst.
+
+clo : exp -> subst -> val.	(* closures *)
+vpair : val -> val -> val.	(* value pairs *)
+
+(* lookup N S = S(N), the Nth value in subst S *)
+lookup : int -> subst -> val -> o.
+lookup 1 (bind V S) V.
+lookup N (bind W S) V
+ <= N > 1, N' is N-1, lookup N' S V.
+
+compute : exp -> subst -> o.
+evalsto : exp -> subst -> val -> o.
+stepsto : exp -> subst -> exp -> subst -> o.
+
+compute (app F W) S
+=> {!compute F S, !compute W S}.
+
+compute (lam E) S
+=> {!evalsto (lam E) S (clo (lam E) S)}.
+
+compute (var N) S,
+lookup N S V
+=> {!evalsto (var N) S V}.
+
+compute (app F W) S,
+evalsto F S (clo (lam E) S'),
+evalsto W S V
+=> {!stepsto (app F W) S E (bind V S')}.
+
+stepsto E S E' S'
+=> {!compute E' S'}.
+
+stepsto E S E' S',
+evalsto E' S' V
+=> {!evalsto E S V}.
+
+compute (pair E1 E2) S
+=> {!compute E1 S, !compute E2 S}.
+
+compute (pair E1 E2) S,
+evalsto E1 S V1,
+evalsto E2 S V2
+=> {!evalsto (pair E1 E2) S (vpair V1 V2)}.
+
+compute (pi1 U) S
+=> {!compute U S}.
+
+compute (pi2 U) S
+=> {!compute U S}.
+
+compute (pi1 U) S,
+evalsto U S (vpair V1 V2)
+=> {!evalsto (pi1 U) S V1}.
+
+compute (pi2 U) S,
+evalsto U S (vpair V1 V2)
+=> {!evalsto (pi2 U) S V2}.
+
+(* top-level interface *)
+evaluate : exp -> val -> o.
+evaluate E V
+ <= (compute E empty => {!evalsto E empty V}).
+
+(* examples *)
+(*
+evaluate (app (lam (var 1)) (lam (var 1))) V.
+
+evaluate (app (lam (pair (pi2 (var 1)) (pi1 (var 1)))) (pair (lam (lam (var 2))) (lam (lam (var 1))))) V.
+
+(* next fails (has no value) *)
+evaluate (app (lam (app (var 1) (var 1))) (lam (app (var 1) (var 1)))) V.
+*)

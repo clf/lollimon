@@ -1,0 +1,22 @@
+To create a distribution:
+
+1. Create files if necessary
+
+(currently none)
+
+2. Create file list
+
+cd ..
+find lollimon -name CVS -prune -o -name papers -prune -o -type f -print > lollimon-dist.txt
+
+3. Edit file list
+
+(currently no deletions from lollimon-dist.txt)
+
+4. Create tar file
+
+tar -cvzf lollimon.tgz `cat lollimon/dist.txt`
+
+5. Put it on the web
+
+mv lollimon.tgz /afs/cs.cmu.edu/user/fp/www/lollimon/

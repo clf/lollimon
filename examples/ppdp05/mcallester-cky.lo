@@ -1,0 +1,77 @@
+(*
+   CKY parsing
+   David McAllester: On the Complexity Analysis of Static Analyses
+   JACM 49(4), July 2002, pp.512-537
+
+   Scribe: Frank Pfenning
+*)
+
+(*
+   Grammars are represented in Chomsky normal form with productions
+
+     rule x (char c).
+     rule x (jux y z).
+
+   where x,y,z represent non-terminals and c represents characters.
+   Strings are represented as assertions
+
+     s i c.
+
+   which means that s(i) = c, 1 <= i <= n where n is the string length.
+   Recognized substrings are represented by
+
+     parse x i j
+
+   which means x -> s(i)...s(j).
+*)
+
+nonterm : type.			(* non-terminals *)
+
+rhs : type.			(* right-hand sides of grammar rules *)
+char : string -> rhs.
+jux : nonterm -> nonterm -> rhs.
+
+rule : nonterm -> rhs -> o.	(* rules *)
+s : int -> string -> o.		(* single characters *)
+parse : nonterm -> int -> int -> o. (* parsed substrings *)
+
+rule X (char C),
+s I C
+=> {!parse X I I}.
+
+rule X (jux Y Z),
+parse Y I J,
+J' is J+1,
+parse Z J' K
+=> {!parse X I K}.
+
+(* initialization *)
+load : int -> list string -> nonterm -> o.
+load I (C::Cs) S <= J is I+1, (s J C => load J Cs S).
+load N nil S <= {parse S 1 N}.
+
+(* top-level interface *)
+start : list string -> nonterm -> o.
+start Cs S <= load 0 Cs S.
+
+(* Examples *)
+(* balanced parentheses *)
+lp : nonterm.
+rp : nonterm.
+close : nonterm.
+bal : nonterm.
+
+rule lp (char "(").
+rule rp (char ")").
+rule bal (jux bal bal).
+rule bal (jux lp rp).
+rule bal (jux lp close).
+rule close (jux bal rp).
+
+(*
+start ("("::"("::")"::"("::")"::")"::nil) bal.
+start ("("::"("::"("::")"::")"::")"::nil) bal.
+start ("("::"("::"("::")"::")"::")"::"("::")"::nil) bal.
+start ("("::")"::"("::nil) bal. (* fails *)
+start (")"::"("::")"::nil) bal. (* fails *)
+*)

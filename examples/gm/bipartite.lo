@@ -1,0 +1,70 @@
+(*
+   Checking bipartiteness
+
+   Derived from
+   H.Ganzinger and D.McAllester, Logical Algorithms, ICLP'02
+
+   Translated by F.Pfenning
+*)
+
+node : type.
+edge : node -> node -> o.
+
+partition : type.
+a : partition.
+b : partition.
+
+(* phase 1: build symmetric closure *)
+edge U V => {!edge V U}.
+
+(* phase 2: initialize each node *)
+init : list node -> o.
+unlabeled : node -> o.
+init (U::Us) -o {unlabeled U, init Us}.
+init (nil) -o {one}.
+
+(* phase 3: propagate label constraints *)
+labeled : node -> partition -> o.
+
+labeled U a,
+edge U V
+=> {!labeled V b}.
+
+labeled U b,
+edge U V
+=> {!labeled V a}.
+
+(* remove all nodes that have been labeled *)
+!labeled U K,
+unlabeled U
+-o {one}.
+
+(* to see assigned labels *)
+#ordered print.
+print : o.
+print <= labeled U K, write (labeled U K), nl, zero.
+print <= write "--all labeled nodes printed--", nl.
+
+notbipartite : list node -> o.
+iterate : o.
+
+notbipartite Us <= {init Us -o {iterate}}.
+
+#ordered iterate.
+iterate o- sigma U \ labeled U a, labeled U b, top.
+iterate o- sigma U \ unlabeled U, (labeled U a => {iterate}).
+
+n1 : node.
+n2 : node.
+n3 : node.
+n4 : node.
+n5 : node.
+n6 : node.
+
+(*
+edge n1 n2 => edge n1 n3 => edge n2 n3 => notbipartite (n1::n2::n3::nil).
+edge n1 n2 => edge n1 n3 => notbipartite (n1::n2::n3::nil). (* should fail *)
+edge n1 n3 => edge n2 n4 => edge n5 n6 => notbipartite (n1::n2::n3::n4::n5::n6::nil). (* should fail *)
+edge n1 n3 => edge n3 n4 => edge n2 n4 => edge n5 n6 => notbipartite (n1::n2::n3::n4::n5::n6::nil). (* should fail *)
+edge n1 n3 => edge n3 n4 => edge n2 n4 => edge n2 n3 => notbipartite (n1::n2::n3::n4::n5::n6::nil).
+*)

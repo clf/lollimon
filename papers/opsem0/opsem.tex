@@ -1,0 +1,1388 @@
+\documentclass{article}
+
+\usepackage{proof}
+\usepackage{palatino}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{mathtools}
+\usepackage{array}
+\usepackage{stmaryrd}
+\usepackage{bm}
+\usepackage{anysize}
+
+\include{imacros} 
+
+\def\gror{\;\vert\;}
+
+\newcommand{\calclabel}[1]
+   {\noindent{\sc #1}}
+
+\title{CLF Operational Semantics}
+
+\begin{document}
+
+\marginsize{2.0cm}{2.0cm}{1.5cm}{1.5cm}
+
+\maketitle
+
+\section{CLF as a linear logic programming language}
+
+\subsection{Goals and Clauses}
+
+The CLF formulas are classified into asynchronous, $A$, and 
+synchronous, $S$, depending on their topmost connective:
+$$
+\begin{array}{lll}
+A & ::=   & A_1 \with A_2 
+      \gror A_1 \iimp A_2 
+      \gror A_1 \limp A_2 
+      \gror \forall x.A  
+      \gror \top 
+      \gror \{ S \} 
+      \gror P 
+\\
+S & ::= &   S_1 \tensor S_2 
+      \gror S_1 \oplus S_2 
+      \gror \exists x.S 
+      \gror \one 
+      \gror \bang A
+      \gror A
+\end{array}
+$$
+A goal formula can be either asynchronous or synchronous.
+A clause must be asynchronous; thus synchronous connectives
+in clauses can only occur within the monadic constructor $\{\}$.
+
+CLF is a conservative extension of Lolli in that:
+\begin{itemize}
+\item goals can be monadic $\{ S \}$
+\item clauses are allowed to have asynchronous connectives, encapsulated in the monad $\{S\}$ 
+\end{itemize}
+Another difference worth mentioning is that $\bang$ is restricted 
+to affect to asynchronous formulas only.
+Most importanly from a logic programmer's perspective, CLF clauses 
+can have an atomic $P$ or a monadic $\{S\}$ head. 
+
+The following meta-variables will be used along this document:
+\begin{itemize}
+\item[$P$] atomic formulas
+\item[$A$] asynchronous formulas
+\item[$S$] synchronous formulas
+\item[$H$] atomic $P$ or monadic $\{S\}$ formulas
+\end{itemize}
+
+\subsection{Residuation Calculus}
+
+CLF clauses with atomic heads can be residuated into goals. 
+The residuation judgment:
+$$
+\resid {A} {P} {S}
+$$
+takes an asynchronous clause $A$ and an tomic goal $P$,
+and generates a synchronous goal $S$.  
+
+The rules of the residuation calculus are essentially those of
+Lolli.
+$$
+\nsrule {}
+        {\resid {P'} {P} {P' = P}}
+        {\ResidRule{=}}
+\qquad
+\begin{array}{l}
+\nsrule {\resid {A_1[y/x]}      {P} {S[y/x]}}
+        {\resid {\forall x.A_1} {P} {\exists x.S}}
+        {\ResidRule{\forall}}
+\\
+\proviso{y \mbox{ not free in the conclusion}}
+\end{array}
+\qquad
+\nsrule {}
+        {\resid {\top} {P} {\zero}}
+        {\ResidRule{\top}}
+$$
+
+$$
+\nsrule {\resid {A_1} {P} {S_1}
+           \andalso
+         \resid {A_2} {P} {S_2}
+        }
+        {\resid {A_1 \with A_2} {P} {S_1 \oplus S_2}}
+        {\ResidRule{\with}}
+\qquad
+\nsrule {\resid {A_2} {P} {S}}
+        {\resid {A_1 \limp A_2} {P} {S \tensor A_1}}
+        {\ResidRule{\limp}}
+\qquad
+\nsrule {\resid {A_2} {P} {S}}
+        {\resid {A_1 \iimp A_2} {P} {S \tensor \bang A_1}}
+        {\ResidRule{\iimp}}
+$$
+
+
+\section{A Sequent Calculus presentation of $\CLFsystem$}
+
+The sequent calculus of CLF uses six different kinds of judgments:
+$$
+\begin{array}{ll}
+\mbox{Normal Object Checking}   &  \CLFNCseq {\Gamma} {\Delta} {A}      \\
+\mbox{Monadic Object Checking}  &  \CLFNCseq {\Gamma} {\Delta} {S}      \\
+\mbox{Atomic Object Inference}  &  \CLFAIseq {\Gamma} {\Delta} {H}      \\
+\mbox{Expression Checking}      &  \CLFECseq {\Gamma} {\Delta} {S}      \\
+\mbox{Forward Chaining}         &  \CLFFCseq {\Gamma} {\Delta} {A} {S}  \\
+\mbox{Pattern Expansion}        &  \CLFPEseq {\Gamma} {\Delta} {\Psi} {S} 
+\end{array}
+$$
+In all of the judgments above, $\Gamma$ stands for the intuitionistic
+clauses and $\Delta$ for the linear clauses. The rules of the sequent
+calculus are shown in figure~\ref{fig:CLFseq}.
+
+The operational semantics of CLF is illustrated with an informal discussion 
+of the proof search procedure.
+When the CLF proof contains no monadic goals, the proof search procedure 
+is similar to that of other logic languages as Prolog, $\lambda$Prolog, 
+or Lolli: a backchaining, bottom-up proof search for a uniform proof. 
+However, when monadic goals come into play, forward chaining and 
+expansion are needed.
+
+\bigskip
+
+\noindent\textbf{Uniformity and Backchaining}
+
+The Normal and Monadic Object Checking rules are exactly the right
+rules of Lolli (except for $\GRuleName{\CLFsystem}{\{\}}$.) These
+rules are used to decompose the goal into atomic or monadic goals.
+The other rules are only considered when the goal is either atomic
+or monadic. When there are no monadic goals involved, this strategy
+corresponds to intuitionistic uniformity.
+
+The Atomic Object Inference rules are similar to the pick rules
+of Lolli, except that the goal can be either atomic or monadic.
+Once an atomic goal is encountered in a Normal Object
+Cheking rule, control is transferred to a pick rule where a 
+clause with atomic head is picked to backchain on it. 
+For monadic goals there is an intermediate step 
+particular to CLF: forward chaining and expansion.
+
+\bigskip
+
+\noindent\textbf{Forward chaining and Expansion}
+
+The Expression Checking rules are applied when a monadic goal
+is encountered. There are only two rules to apply.
+The $\GRuleName{\CLFsystem}{\CLFNCarrow{}\CLFECarrow{}}$
+rule transfers the control back to the Normal or Monadic Object
+Checking rules. The $\GRuleName {\CLFsystem}{\mbox{what?}}$
+rule is where forward chaining and expansion take place.
+If the rule:
+$$
+\nsrule {\CLFAIseq {\Gamma} {\Delta_1} {\{S_0\}} 
+           \andalso
+         \CLFPEseq {\Gamma} {\Delta_2} {S_0} {S}
+        }
+        {\CLFECseq {\Gamma} {\Delta_1 \Delta_2} {S}}
+        {\GRuleName {\CLFsystem}{\mbox{what?}}}
+$$
+were applied bottom-up, the monadic goal $\{S_0\}$ would be 
+unknown. Thus, at this point, the proof search procedure must 
+change the direction and generate $\{S_0\}$ by forward chaining.
+In particular, the monadic goal $\{S_0\}$ should match the
+head of a clause, so only clauses whose head is monadic are
+considered for forward chaining.
+The current implementation forward chains on the residuation calculus
+to generate the $\{S_0\}$ goal, that is then solved in the left
+premise by applying the corresponding pick rule. The right premise 
+corresponds to the expansion of the synchronous formula $S_0$, 
+as discussed below.
+
+It's worth mentioning that the $\GRuleName{\CLFsystem}{\mbox{what?}}$ 
+rule ``resembles'' the left rule for $\limp$ in linear logic:
+$$
+\srule {\Gamma; \Delta_1   \vdash A
+           \andalso
+        \Gamma; S_0 \Delta_2 \vdash S
+       }
+       {\Gamma; A \limp S_0 \Delta_1 \Delta_2 \vdash S}
+$$
+except that in  $\GRuleName{\CLFsystem}{\mbox{what?}}$ the clause being 
+applied, $A \limp S_0$, is unknown\footnote{A similar interpretation can 
+be given when the clause is in $\Gamma$ or when the implication is 
+intuitionistic $A \iimp S_0$ or even both.}.
+Thus, more precisely, the $\GRuleName{\CLFsystem}{\mbox{what?}}$
+corresponds to the ``derivation'':
+$$
+\srule {\srule {\Gamma; \Delta_1  \vdash A}
+               {\Gamma; A \limp S_0 \Delta_1  \vdash S_0}
+           \andalso
+        \Gamma; S_0 \Delta_2 \vdash S
+       }
+       {\Gamma; A \limp S_0 \Delta_1 \Delta_2 \vdash S}
+$$
+Note that both in the left rule and the ``derivation''
+the synchronous formula $S_0$ was added to the context
+in the right premise.
+This is impossible in CLF since clauses must be
+asynchronous. The expansion phase on the right premise 
+$\CLFPEseq {\Gamma}{\Delta_2}{S_0}{S}$ takes care of making 
+sense of such an addition.
+
+The Pattern Expansion rules are in charge of adding a synchronous
+``clause'' to the contexts. These rules take the synchronous formula 
+$S_0$ and break it into its asynchronous subclauses, which are added 
+to the appropriate context ($\GRuleName{\CLFsystem}{A_p}$ and 
+$\GRuleName{\CLFsystem}{\bang A_p}$.) These rules are actually
+a focussed formulation of the linear logic left rules for the 
+synchronous connectives.
+
+Let us suppose that the expansion of the synchronous formula $S_0$ 
+adds clauses $\Gamma'$ and $\Delta'$ to the intuitionistic and linear
+contexts, respectively:
+$$
+\nsrule {\CLFAIseq {\Gamma} {\Delta_1} {\{S_0\}} 
+           \andalso
+         \srule{\srule {\CLFECseq {\Gamma'\Gamma} {\Delta'\Delta_2} {S}}
+                       {\vdots}
+               }
+               {\CLFPEseq {\Gamma} {\Delta_2} {S_0} {S}}
+        }
+        {\CLFECseq {\Gamma} {\Delta_1 \Delta_2} {S}}
+        {\GRuleName {\CLFsystem}{\mbox{what?}}}
+$$
+Thus the original goal:
+$$
+ \CLFECseq {\Gamma} {\Delta_1 \Delta_2} {S}
+$$
+is transformed into:
+$$
+\CLFECseq {\Gamma'\Gamma} {\Delta' \Delta_2} {S}
+$$
+At this point, the proof search procedure keeps applying 
+$\GRuleName{\CLFsystem}{\mbox{what?}}$ until a new goal
+$$
+\CLFNCseq {\Gamma'_n\Gamma}{\Delta'_n\Delta_n}{\{S\}}
+$$
+is generated and control is transferred again to the 
+Normal or Monadic Object Checking (i.e. right rules).
+Thus there are two sources of non-determinism in the forward chaining
+and expansion phase:
+\begin{enumerate}
+\item the choice of monadic clasue to forward chain
+\item the number of times that the program must be expanded
+      before control is transferred again to the uniformity
+      and backchaining phase
+\end{enumerate}
+
+The current implementation uses a saturation method to remove that
+non-determinism. Clauses are added to the logic program until a fix
+point is reached. This can, of course, lead to infinite loops for
+certain CLF programs.
+
+
+
+\section{A monadic example}
+
+TO DO.
+
+I would like to add an intuitive example where monadic constructors
+are used. It should be simple and intuitive, as to illustrate how and
+why the monad is used in writing specifications. Suggestions welcome.
+
+
+\newpage
+
+\begin{figure}[!h]
+
+\noindent Normal Object Checking
+
+$$
+\nsrule {\CLFECseq {\Gamma} {\Delta} {S}}
+        {\CLFNCseq {\Gamma} {\Delta} {\{S\}}}
+        {\GRuleName{\CLFsystem} {\{ \}}}
+\qquad
+\nsrule {\CLFAIseq {\Gamma} {\Delta} {P}}
+        {\CLFNCseq {\Gamma} {\Delta} {P}}
+        {\GRuleName{\CLFsystem} {P}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFNCseq {\Gamma} {\Delta} {A[a/x]}}
+        {\CLFNCseq {\Gamma} {\Delta} {\forall x.A}}
+        {\GRuleName {\CLFsystem}{\forall}}
+\\
+\proviso{a \mbox{ not free in conclusion}}
+\end{array}
+\qquad
+\nsrule {\CLFNCseq {\Gamma} {A_1 \Delta} {A_2}}
+        {\CLFNCseq {\Gamma} {\Delta} {A_1 \limp A_2}}
+        {\GRuleName{\CLFsystem}{\limp}}
+\qquad
+\nsrule {\CLFNCseq {A_1 \Gamma} {\Delta} {A_2}}
+        {\CLFNCseq {\Gamma} {\Delta} {A_1 \iimp A_2}}
+        {\GRuleName{\CLFsystem}{\iimp}}
+$$
+
+$$
+\nsrule {\CLFNCseq {\Gamma} {\Delta} {A_1}
+            \andalso
+         \CLFNCseq {\Gamma} {\Delta} {A_2}
+        }
+        {\CLFNCseq {\Gamma} {\Delta} {A_1 \with A_2}}
+        {\GRuleName{\CLFsystem}{\with}}
+\qquad
+\nsrule {}
+        {\CLFNCseq {\Gamma} {\Delta} {\top}}
+        {\GRuleName{\CLFsystem}{\top}}
+$$
+
+\noindent Monadic Object Checking
+
+$$
+\nsrule {\CLFMCseq {\Gamma} {\Delta_1} {S_1}
+           \andalso
+         \CLFMCseq {\Gamma} {\Delta_2} {S_2}
+        }
+        {\CLFMCseq {\Gamma} {\Delta_1 \Delta_2} {S_1 \tensor S_2}}
+        {\GRuleName {\CLFsystem} {\tensor}}
+\qquad
+\nsrule {}
+        {\CLFMCseq {\Gamma} {\cdot}{\one}}
+        {\GRuleName {\CLFsystem}{\one}}
+\qquad
+\nsrule {\CLFMCseq {\Gamma} {\cdot} {A}}
+        {\CLFMCseq {\Gamma} {\cdot} {\bang A}}
+        {\GRuleName {\CLFsystem} {\bang}}
+\qquad
+\nsrule {\CLFMCseq {\Gamma} {\Delta} {S[t/x]}}
+        {\CLFMCseq {\Gamma} {\Delta} {\exists x.S}}
+        {\GRuleName {\CLFsystem} {\exists}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFMCseq {\Gamma} {\Delta} {S_i}
+        }
+        {\CLFMCseq {\Gamma} {\Delta} {S_1 \oplus S_2}}
+        {\GRuleName {\CLFsystem} {\oplus}}
+\\
+\proviso{i= 1,2}
+\end{array}
+\qquad
+\mbox{No rule for }\zero
+\qquad
+\nsrule {}
+        {\CLFMCseq {\Gamma} {\cdot} {P = P}}
+        {\GRuleName {\CLFsystem} {=}}
+$$
+
+\noindent Atomic Object Inference
+
+$$
+\nsrule {\resid {A} {P} {S}
+           \andalso
+         \CLFNCseq {\Gamma} {\Delta_L \Delta_R} {S}
+        }
+        {\CLFAIseq {\Gamma} {\Delta_L A \Delta_R} {P}}
+        {\PRuleName{\CLFsystem}{\Delta}}
+\qquad
+\nsrule {\resid {A} {P} {S}
+           \andalso
+         \CLFNCseq {\Gamma_L A \Gamma_R} {\Delta} {S}
+        }
+        {\CLFAIseq {\Gamma_L A \Gamma_R} {\Delta} {P}}
+        {\PRuleName{\CLFsystem}{\Gamma}}
+$$
+
+\noindent Expression Checking
+
+$$
+\nsrule {\CLFFCseq {\Gamma_L A \Gamma_R} {\Delta_1} {A} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFPEseq {\Gamma_L A \Gamma_R} {\Delta_2} {S_0} {S}
+        }
+        {\CLFECseq {\Gamma_L A \Gamma_R} {\Delta_1 \Delta_2} {S}}
+        {\GRuleName {\CLFsystem}{\CLFFCarrow\Gamma}}
+$$
+
+$$
+\nsrule {\CLFFCseq {\Gamma} {\Delta_1} {A} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFPEseq {\Gamma} {\Delta_2} {S_0} {S}
+        }
+        {\CLFECseq {\Gamma} {\Delta_1 A \Delta_2} {S}}
+        {\GRuleName {\CLFsystem}{\CLFFCarrow\Delta}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFMCseq {\Gamma} {\Delta} {S}}
+        {\CLFECseq {\Gamma} {\Delta} {S}}
+         {\GRuleName {\CLFsystem}{\CLFNCarrow{}\CLFECarrow{}}}
+\\
+\proviso{\mbox{no forward chaining is possible}}
+\end{array}
+$$
+
+
+\noindent Pattern Expansion
+
+$$
+\nsrule {\CLFECseq {\Gamma} {\Delta} {S}}
+        {\CLFPEseq {\Gamma} {\Delta} {\cdot} {S}}
+        {\GRuleName {\CLFsystem}{\CLFECarrow{}\CLFPEarrow{}_p}}
+\qquad
+\nsrule {\CLFPEseq {\Gamma} {A \Delta} {\Psi} {S}}
+        {\CLFPEseq {\Gamma} {\Delta}   {A \Psi} {S}}
+        {\GRuleName  {\CLFsystem}{A_p}}
+\qquad
+\nsrule {\CLFPEseq {\Gamma} {\Delta} {\Psi} {S}}
+        {\CLFPEseq {\Gamma} {\Delta} {\one \Psi} {S}}
+        {\GRuleName {\CLFsystem}{\one_p}}
+$$
+
+$$
+\nsrule {\CLFPEseq {\Gamma} {\Delta} {S_1 S_2 \Psi} {S}}
+        {\CLFPEseq {\Gamma} {\Delta} {S_1 \tensor S_2 \Psi} {S}}
+        {\GRuleName {\CLFsystem} {\tensor_p}}
+\qquad
+\begin{array}{l}
+\nsrule {\CLFPEseq {\Gamma} {\Delta} {S_0[a/x] \Psi} {S}}
+        {\CLFPEseq {\Gamma} {\Delta} {\exists x.S_0 \Psi} {S}}
+        {\GRuleName  {\CLFsystem} {\exists_p}}
+\\
+\proviso{a \mbox{ not free in conclusion}}
+\end{array}
+$$
+
+$$
+\nsrule {\CLFPEseq {\Gamma} {\Delta} {S_1 \Psi} {S}
+           \andalso
+         \CLFPEseq {\Gamma} {\Delta} {S_2 \Psi} {S}
+        }
+        {\CLFPEseq {\Gamma} {\Delta} {S_1 \oplus S_2 \Psi} {S}}
+        {\GRuleName {\CLFsystem} {\oplus_p}}
+\qquad
+\nsrule {}
+        {\CLFPEseq {\Gamma} {\Delta} {\zero \Psi} {S}}
+        {\GRuleName {\CLFsystem} {\zero_p}}
+$$
+
+$$
+\nsrule {\CLFPEseq {A \Gamma} {\Delta} {\Psi} {S}}
+        {\CLFPEseq {\Gamma} {\Delta}   {\bang A \Psi} {S}}
+        {\GRuleName  {\CLFsystem}{\bang A_p}}
+$$
+
+\caption{Sequent Calculus of CLF \label{fig:CLFseq}}
+\end{figure}
+
+\newpage
+
+\begin{figure}
+\noindent Forward Chaining
+
+$$
+\nsrule {}
+        {\CLFFCseq {\Gamma} {\Delta} {\{S\}} {\{S\}}}
+        {\GRuleName {\CLFsystem} {\CLFFCarrow \{\}} }
+\qquad
+\mbox{no rule for atomic head } P
+$$
+
+$$
+\nsrule {\CLFFCseq {\Gamma} {\Delta_1} {A_2} {\{S\}}
+            \andalso
+         \CLFNCseq {\Gamma} {\Delta_2} {A_1}
+        }
+        {\CLFFCseq {\Gamma} {\Delta_1 \Delta_2} {A_1 \limp A_2} {\{S\}}}
+        {\GRuleName {\CLFsystem} {\CLFFCarrow\limp}}
+\qquad
+\nsrule {\CLFFCseq {\Gamma} {\Delta} {A_2} {\{S\}}
+            \andalso
+         \CLFNCseq {\Gamma} {\cdot} {A_1}
+        }
+        {\CLFFCseq {\Gamma} {\Delta} {A_1 \iimp A_2} {\{S\}}}
+        {\GRuleName {\CLFsystem} {\CLFFCarrow\iimp}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFFCseq {\Gamma} {\Delta} {A_i} {\{S\}}}
+        {\CLFFCseq {\Gamma} {\Delta} {A_1 \with A_2} {\{S\}}}
+        {\GRuleName {\CLFsystem} {\CLFFCarrow\with}}
+\\
+\proviso{i=1,2}
+\end{array}
+\qquad
+\nsrule {\CLFFCseq {\Gamma} {\Delta} {A[t/x]} {\{S\}}}
+        {\CLFFCseq {\Gamma} {\Delta} {\forall x.A} {\{S\}}}
+        {\GRuleName {\CLFsystem} {\CLFFCarrow\forall}}
+$$
+
+\caption{Sequent Calculus of CLF (cont.)}
+\end{figure}
+
+
+\newpage
+
+\section{An $IO_\top$ presentation of $\CLFsystem$}
+
+\noindent Normal Object Checking
+
+$$
+\nsrule {\CLFIOECseq {\Gamma} {\Delta_I} {\Delta_O} {v} {S}}
+        {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {\{S\}}}
+        {\GRuleName  {\CLFIOsystem} {  \{ \} }}
+\qquad
+\nsrule {\CLFIOAIseq {\Gamma} {\Delta_I} {\Delta_O} {v} {P}}
+        {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {P}}
+        {\GRuleName  {\CLFIOsystem} {P }}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {A[a/x]}}
+        {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {\forall x.A}}
+        {\GRuleName {\CLFIOsystem} {\forall}}
+\\
+\proviso{a \mbox{ not free in conclusion}}
+\end{array}
+\qquad
+\nsrule {}
+        {\CLFIONCseq {\Gamma} {\Delta} {\Delta} {1} {\top}}
+        {\GRuleName{\CLFIOsystem}{\top}}
+\qquad
+\nsrule {\CLFIONCseq {A_1 \Gamma} {\Delta_I} {\Delta_O} {v} {A_2}}
+        {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {A_1 \iimp A_2}}
+        {\GRuleName{\CLFIOsystem}{\iimp}}
+$$
+
+$$
+\nsrule {\CLFIONCseq {\Gamma} {A_1 \Delta_I \Delta_O} {\Delta_O} {0} {A_2}}
+        {\CLFIONCseq {\Gamma} {\Delta_I \Delta_O} {\Delta_O} {0} {A_1 \limp A_2}}
+        {\GRuleName{\CLFIOsystem}{\limp_0}}
+\qquad
+\nsrule {\CLFIONCseq {\Gamma} {A_1 \Delta_I \Delta_O} {\_ \, \Delta_O} {1} {A_2}}
+        {\CLFIONCseq {\Gamma} {\Delta_I \Delta_O} {\Delta_O} {1} {A_1 \limp A_2}}
+        {\GRuleName{\CLFIOsystem}{\limp_1}}
+$$
+
+$$
+\nsrule {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {0} {A_1}
+            \andalso
+         \CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {0} {A_2}
+        }
+        {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {0} {A_1 \with A_2}}
+        {\GRuleName{\CLFIOsystem}{\with_{00}}}
+\qquad
+\nsrule {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {0} {A_1}
+            \andalso
+         \CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O \Delta'_O} {1} {A_2}
+        }
+        {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {0} {A_1 \with A_2}}
+        {\GRuleName{\CLFIOsystem}{\with_{01}}}
+$$
+
+$$
+\nsrule {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O \Delta'_O} {1} {A_1}
+            \andalso
+         \CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {0} {A_2}
+        }
+        {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {0} {A_1 \with A_2}}
+        {\GRuleName{\CLFIOsystem}{\with_{10}}}
+\qquad
+\nsrule {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O} {1} {A_1}
+            \andalso
+         \CLFIONCseq {\Gamma} {\Delta_I} {\Delta'_O} {1} {A_2}
+        }
+        {\CLFIONCseq {\Gamma} {\Delta_I} {\Delta_O \cap \Delta'_O} {1} {A_1 \with A_2}}
+        {\GRuleName{\CLFIOsystem}{\with_{11}}}
+$$
+
+
+\noindent Monadic Object Checking
+
+$$
+\nsrule {\CLFIOMCseq {\Gamma} {\Delta_I} {\Delta_M} {v_1} {S_1}
+           \andalso
+         \CLFIOMCseq {\Gamma} {\Delta_M} {\Delta_O} {v_2} {S_2}
+        }
+        {\CLFIOMCseq {\Gamma} {\Delta_I} {\Delta_O} {v_1 \lor v_2} {S_1 \tensor S_2}}
+        {\GRuleName {\CLFIOsystem} {\tensor}}
+\qquad
+\begin{array}{l}
+\nsrule {\CLFIOMCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {S_i}}
+        {\CLFIOMCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {S_1 \oplus S_2}}
+        {\GRuleName  {\CLFIOsystem} {\oplus}}
+\\
+\proviso {i=1,2}
+\end{array}
+$$
+
+$$
+\nsrule {}
+        {\CLFIOMCseq {\Gamma} {\Delta} {\Delta} {0} {\one}}
+        {\GRuleName  {\CLFIOsystem} {\one}}
+\qquad 
+\mbox{No rule for } \zero
+\qquad
+\nsrule {\CLFIOMCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {S[t/x]}}
+        {\CLFIOMCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {\exists x.S}}
+        {\GRuleName  {\CLFIOsystem} {\exists}}
+$$
+
+$$
+\nsrule {\CLFIOMCseq {\Gamma} {\cdot} {\cdot} {v} {A}}
+        {\CLFIOMCseq {\Gamma} {\Delta} {\Delta} {0} {\bang A}}
+        {\GRuleName  {\CLFIOsystem} {\bang}}
+\qquad
+\nsrule {}
+        {\CLFIOMCseq {\Gamma} {\Delta} {\Delta} {0} {P = P}}
+        {\GRuleName  {\CLFIOsystem} {=}}
+$$
+
+\noindent Atomic Object Inference
+
+$$
+\nsrule {\resid {A} {P} {S}
+           \andalso
+         \CLFIONCseq {\Gamma} {\Delta_{IL}   \Delta_{IR}} {\Delta_{OL} \Delta_{OR}} {v} {S}
+        }
+       {\CLFIOAIseq {\Gamma} {\Delta_{IL} A \Delta_{IR}} {\Delta_{OL} \Delta_{OR}} {v} {P}}
+        {\PRuleName{\CLFIOsystem}{\Delta}}
+\qquad
+\nsrule {\resid {A} {P} {S}
+           \andalso
+         \CLFIONCseq {\Gamma_L A \Gamma_R} {\Delta_I} {\Delta_O} {v} {S}
+        }
+        {\CLFIOAIseq {\Gamma_L A \Gamma_R} {\Delta_I} {\Delta_O} {v} {P}}
+        {\PRuleName{\CLFIOsystem}{\Gamma}}
+$$
+
+
+\noindent Expression Checking
+
+
+$$
+\nsrule {\CLFIOFCseq {\Gamma_L A \Gamma_R} {\Delta_I} {\Delta_M} {A} {v_1} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFIOPEseq {\Gamma_L A \Gamma_R} {\Delta_M} {\Delta_O} {S_0} {v_2} {S}
+        }
+        {\CLFIOECseq {\Gamma_L A \Gamma_R} {\Delta_I} {\Delta_O} {v_1 \lor v_2} {S}}
+        {\GRuleName {\CLFIOsystem}{\CLFFCarrow\Gamma}}
+$$
+
+$$
+\nsrule {\CLFIOFCseq {\Gamma} {\Delta_{IL} \Delta_{IR}} {\Delta_M} {A} {v_1} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFIOPEseq {\Gamma} {\Delta_M} {\Delta_O} {S_0} {v_2} {S}
+        }
+        {\CLFIOECseq {\Gamma} {\Delta_{IL} A \Delta_{IR}} {\Delta_O} {v_1 \lor v_2} {S}}
+        {\GRuleName {\CLFIOsystem}{\CLFFCarrow\Delta}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFIOMCseq {\Gamma} {\Delta_I} {\Delta_O} {v} {S}}
+        {\CLFIOECseq {\Gamma} {\Delta_I} {\Delta_O} {v} {S}}
+         {\GRuleName  {\CLFIOsystem} {\CLFNCarrow{}\CLFECarrow{}}}
+\\
+\proviso{\mbox{no forward chaining is possible}}
+\end{array}
+$$
+
+\noindent Pattern Expansion
+
+$$
+\nsrule {\CLFIOECseq {\Gamma} {\Delta_I} {\Delta_O} {v} {S}}
+        {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {\cdot} {v} {S}}
+        {\GRuleName   {\CLFIOsystem} {\CLFECarrow{}\CLFPEarrow{}_p}}
+\qquad
+\nsrule {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {\Psi} {v} {S}}
+        {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {\one \Psi} {v} {S}}
+        {\GRuleName  {\CLFIOsystem} {\one_p}}
+$$
+
+$$
+\nsrule {\CLFIOPEseq {\Gamma} {A \Delta_I\Delta_O} {\Delta_O} {\Psi} {0} {S}}
+        {\CLFIOPEseq {\Gamma} {\Delta_I\Delta_O} {\Delta_O} {A \Psi} {0} {S}}
+        {\GRuleName  {\CLFIOsystem}{A_{p0}}}
+\qquad
+\nsrule {\CLFIOPEseq {\Gamma} {A \Delta_I\Delta_O} {A \Delta_O} {\Psi} {1} {S}}
+        {\CLFIOPEseq {\Gamma} {\Delta_I \Delta_O} {\Delta_O} {A \Psi} {1} {S}}
+        {\GRuleName  {\CLFIOsystem}{A_{p1}}}
+$$
+
+$$
+\nsrule {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_1 S_2 \Psi} {v} {S}}
+        {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_1 \tensor S_2 \Psi} {v} {S}}
+        {\GRuleName   {\CLFIOsystem} {\tensor_p}}
+\qquad
+\begin{array}{l}
+\nsrule {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S[a/x] \Psi} {v} {S}}
+        {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {\exists x.S \Psi} {v} {S}}
+        {\GRuleName  {\CLFIOsystem} {\exists_p}}
+\\
+\proviso{a \mbox{ not free in conclusion}}
+\end{array}
+$$
+
+$$
+\nsrule {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_1 \Psi} {0} {S}
+            \andalso
+         \CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_2 \Psi} {0} {S}
+        }
+        {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_1 \oplus S_2 \Psi} {0} {S}}
+        {\GRuleName  {\CLFIOsystem} {\oplus_{00p}}}
+$$
+
+$$
+\nsrule {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_1 \Psi} {0} {S}
+            \andalso
+         \CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O\Delta'_O} {S_2 \Psi} {1} {S}
+        }
+        {\CLFIOPEseq {\Delta_I} {\Delta_O} {S_1 \oplus S_2 \Psi} {0} {S}}
+        {\GRuleName  {\CLFIOsystem} {\oplus_{01p}}}
+$$
+
+$$
+\nsrule {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O\Delta'_O} {S_1 \Psi} {1} {S}
+            \andalso
+         \CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_2 \Psi} {0} {S}
+        }
+        {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_1 \oplus S_2 \Psi} {0} {S}}
+        {\GRuleName  {\CLFIOsystem} {\oplus_{10p}}}
+$$
+
+$$
+\nsrule {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {S_1 \Psi} {1} {S}
+            \andalso
+         \CLFIOPEseq {\Gamma} {\Delta_I} {\Delta'_O} {S_2 \Psi} {1} {S}
+        }
+        {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O \cap \Delta'_O} {S_1 \oplus S_2 \Psi} {1} {S}}
+        {\GRuleName  {\CLFIOsystem} {\oplus_{11p}}}
+$$
+
+$$
+\nsrule {}
+        {\CLFIOPEseq {\Gamma} {\Delta} {\Delta} {\zero \Psi} {0} {S}}
+        {\GRuleName  {\CLFIOsystem}{\zero}}
+\qquad
+\nsrule {\CLFIOPEseq {A \Gamma} {\Delta_I} {\Delta_O} {\Psi} {v} {S}}
+        {\CLFIOPEseq {\Gamma} {\Delta_I} {\Delta_O} {\bang A \Psi} {v} {S}}
+        {\GRuleName  {\CLFIOsystem}{\bang}}
+$$
+
+\noindent Forward Chaining
+
+$$
+\nsrule {}
+        {\CLFIOFCseq {\Gamma} {\Delta} {\Delta} {\{S\}} {0} {\{S\}}}
+        {\GRuleName {\CLFIOsystem} {\CLFFCarrow \{\}} }
+\qquad
+\mbox{no rule for atomic head } P
+$$
+
+$$
+\nsrule {\CLFIOFCseq {\Gamma} {\Delta_I} {\Delta_M} {A_2} {v_1} {\{S\}}
+            \andalso
+         \CLFIONCseq {\Gamma} {\Delta_M} {\Delta_O} {v_2} {A_1}
+        }
+        {\CLFIOFCseq {\Gamma} {\Delta_I} {\Delta_O} {A_1 \limp A_2} {v_1 \lor v_2} {\{S\}}}
+        {\GRuleName {\CLFIOsystem} {\CLFFCarrow\limp}}
+\qquad
+\nsrule {\CLFIOFCseq {\Gamma} {\Delta_I} {\Delta_O} {A_2} {v} {\{S\}}
+            \andalso
+         \CLFIONCseq {\Gamma} {\cdot} {\cdot} {\_} {A_1}
+        }
+        {\CLFIOFCseq {\Gamma} {\Delta_I} {\Delta_O} {A_1 \iimp A_2} {v} {\{S\}}}
+        {\GRuleName {\CLFIOsystem} {\CLFFCarrow\iimp}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFIOFCseq {\Gamma} {\Delta_I} {\Delta_O} {A_i} {v} {\{S\}}}
+        {\CLFIOFCseq {\Gamma} {\Delta_I} {\Delta_O} {A_1 \with A_2} {v} {\{S\}}}
+        {\GRuleName {\CLFIOsystem} {\CLFFCarrow\with}}
+\\
+\proviso{i=1,2}
+\end{array}
+\qquad
+\nsrule {\CLFIOFCseq {\Gamma} {\Delta_I} {\Delta_O} {A[t/x]} {v} {\{S\}}}
+        {\CLFIOFCseq {\Gamma} {\Delta_I} {\Delta_O} {\forall x.A} {v} {\{S\}}}
+        {\GRuleName {\CLFIOsystem} {\CLFFCarrow\forall}}
+$$
+
+
+\subsection{A Frames presentation of CLF}
+
+
+\noindent Normal Object Checking
+
+$$
+\nsrule {\CLFFRECseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S}}
+        {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {\{S\}}}
+        {\GRuleName  {\CLFFRsystem} {  \{ \} }}
+\qquad
+\nsrule {\CLFFRAIseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {P}}
+        {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {P}}
+        {\GRuleName  {\CLFFRsystem} {P }}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {A[a/x]}}
+        {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {\forall x.A}}
+        {\GRuleName {\CLFFRsystem} {\forall}}
+\\
+\proviso{a \mbox{ not free in conclusion}}
+\end{array}
+\qquad
+\nsrule {}
+        {\CLFFRNCseq {\Gamma} {\Delta} {\Pi} {\Pi} {1} {\top}}
+        {\GRuleName{\CLFFRsystem}{\top}}
+\qquad
+\nsrule {\CLFFRNCseq {A_1 \Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {A_2}}
+        {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {A_1 \iimp A_2}}
+        {\GRuleName{\CLFFRsystem}{\iimp}}
+$$
+
+$$
+\nsrule {\CLFFRNCseq {\Gamma} {A_1 \Delta} {\Pi_I} {\Pi_O} {v} {A_2}}
+        {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {A_1 \limp A_2}}
+        {\GRuleName{\CLFFRsystem}{\limp}}
+$$
+
+$$
+\nsrule {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {0} {A_1}
+            \andalso
+         \CLFFRNCseq {\Gamma} {\Delta \cup (\Pi_I \frdiff \Pi_O)} {\emptyframe} {\emptyframe} {v} {A_2}
+        }
+        {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {0} {A_1 \with A_2}}
+        {\GRuleName{\CLFFRsystem}{\with_{0v}}}
+$$
+
+$$
+\nsrule {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_M} {1} {A_1}
+            \andalso
+         \CLFFRNCseq {\Gamma} {\Delta \cup (\Pi_I \frdiff \Pi_O)} {\Pi_M} {\Pi_O} {v} {A_2}
+        }
+        {\CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {A_1 \with A_2}}
+        {\GRuleName{\CLFFRsystem}{\with_{1v}}}
+$$
+
+
+\noindent Monadic Object Checking
+
+$$
+\nsrule {\CLFFRMCseq {\Gamma} {\cdot} {\Delta \frcons \Pi_I} {\Delta' \frcons \Pi_M} {0} {S_1}
+           \andalso
+         \CLFFRMCseq {\Gamma} {\Delta'} {\Pi_M} {\Pi_O} {v} {S_2}
+        }
+        {\CLFFRMCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S_1 \tensor S_2}}
+        {\GRuleName {\CLFFRsystem} {\tensor_{0v}}}
+$$
+
+$$
+\nsrule {\CLFFRMCseq {\Gamma} {\cdot} {\Delta \frcons \Pi_I} {\Delta' \frcons \Pi_M} {1} {S_1}
+           \andalso
+         \CLFFRMCseq {\Gamma} {\cdot} {\Delta' \frcons \Pi_M} {\Delta'' \frcons \Pi_O} {v} {S_2}
+        }
+        {\CLFFRMCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {1} {S_1 \tensor S_2}}
+        {\GRuleName {\CLFFRsystem} {\tensor_{1v}}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFFRMCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S_i}}
+        {\CLFFRMCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S_1 \oplus S_2}}
+        {\GRuleName  {\CLFFRsystem} {\oplus}}
+\\
+\proviso {i=1,2}
+\end{array}
+$$
+
+$$
+\nsrule {}
+        {\CLFFRMCseq {\Gamma} {\cdot} {\Pi} {\Pi} {0} {\one}}
+        {\GRuleName  {\CLFFRsystem} {\one}}
+\qquad 
+\mbox{No rule for } \zero
+\qquad
+\nsrule {\CLFFRMCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S[t/x]}}
+        {\CLFFRMCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {\exists x.S}}
+        {\GRuleName  {\CLFFRsystem} {\exists}}
+$$
+
+$$
+\nsrule {\CLFFRMCseq {\Gamma} {\cdot} {\emptyframe} {\emptyframe} {v} {A}}
+        {\CLFFRMCseq {\Gamma} {\cdot} {\Pi} {\Pi} {0} {\bang A}}
+        {\GRuleName  {\CLFFRsystem} {\bang}}
+\qquad
+\nsrule {}
+        {\CLFFRMCseq {\Gamma} {\cdot} {\Pi} {\Pi} {0} {P = P}}
+        {\GRuleName  {\CLFFRsystem} {=}}
+$$
+
+\noindent Atomic Object Inference
+
+$$
+\nsrule {\resid {A} {P} {S}
+           \andalso
+         \CLFFRNCseq {\Gamma} {\Delta_{IL}   \Delta_{IR}} {\Pi_I} {\Pi_O} {v} {S}
+        }
+       {\CLFFRAIseq {\Gamma} {\Delta_{IL} A \Delta_{IR}} {\Pi_I} {\Pi_O} {v} {P}}
+        {\PRuleName{\CLFFRsystem}{\Delta}}
+\qquad
+\nsrule {\resid {A} {P} {S}
+           \andalso
+         \CLFFRNCseq {\Gamma_L A \Gamma_R} {\Delta} {\Pi_I} {\Pi_O} {v} {S}
+        }
+        {\CLFFRAIseq {\Gamma_L A \Gamma_R} {\Delta} {\Pi_I} {\Pi_O} {v} {P}}
+        {\PRuleName{\CLFFRsystem}{\Gamma}}
+$$
+
+$$
+\nsrule {\resid {A} {P} {S}
+           \andalso
+         \CLFFRNCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S}
+        }
+        {\CLFFRAIseq {\Gamma} {\Delta} {\Pi_I \frins A} {\Pi_O} {v} {P}}
+        {\PRuleName{\CLFFRsystem}{\Pi}}
+$$
+
+
+\noindent Expression Checking
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma_L A \Gamma_R} {\cdot} {\Delta \frcons \Pi_I} {\Delta' \frcons \Pi_M} {A} {0} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFFRPEseq {\Gamma_L A \Gamma_R} {\Delta'} {\Pi_M} {\Pi_O} {S_0} {v} {S}
+        }
+        {\CLFFRECseq {\Gamma_L A \Gamma_R} {\Delta} {\Pi_I} {\Pi_O} {v} {S}}
+        {\GRuleName {\CLFFRsystem}{\CLFFCarrow\Gamma_{0v}}}
+$$
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma_L A \Gamma_R} {\cdot} {\Delta \frcons \Pi_I} {\Delta' \frcons \Pi_M} {A} {1} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFFRPEseq {\Gamma_L A \Gamma_R} {\cdot} {\Delta' \frcons \Pi_M} {\Delta'' \frcons \Pi_O} {S_0} {v} {S}
+        }
+        {\CLFFRECseq {\Gamma_L A \Gamma_R} {\Delta} {\Pi_I} {\Pi_O} {1} {S}}
+        {\GRuleName {\CLFFRsystem}{\CLFFCarrow\Gamma_{1v}}}
+$$
+
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma} {\cdot} {\Delta_{IL} \Delta_{IR} \frcons \Pi_I} 
+                                      {\Delta'_{IL} \Delta'_{IR} \frcons \Pi_M} {A} {0} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFFRPEseq {\Gamma} {\Delta'_{IL} \Delta'_{IR}} {\Pi_M} {\Pi_O} {S_0} {v} {S}
+        }
+        {\CLFFRECseq {\Gamma} {\Delta_{IL} A \Delta_{IR}}  {\Pi_I} {\Pi_O} {v} {S}}
+        {\GRuleName {\CLFFRsystem}{\CLFFCarrow\Delta_{0v}}}
+$$
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma} {\cdot} {\Delta_{IL} \Delta_{IR} \frcons \Pi_I} 
+                                      {\Delta'_{IL} \Delta'_{IR} \frcons \Pi_M} {A} {1} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFFRPEseq {\Gamma} {\cdot} {\Delta'_{IL} \Delta'_{IR} \frcons \Pi_M} 
+                                      {\Delta''_{IL} \Delta''_{IR} \frcons \Pi_O} {S_0} {v} {S}
+        }
+        {\CLFFRECseq {\Gamma} {\Delta_{IL} A \Delta_{IR}}  {\Pi_I} {\Pi_O} {1} {S}}
+        {\GRuleName {\CLFFRsystem}{\CLFFCarrow\Delta_{1v}}}
+$$
+
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma} {\cdot} {\Delta \frcons \Pi_I} {\Delta' \frcons \Pi_M} {A} {0} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFFRPEseq {\Gamma} {\Delta'} {\Pi_I} {\Pi_O} {S_0} {v} {S}
+        }
+        {\CLFFRECseq {\Gamma} {\Delta}  {\Pi_I \frins A} {\Pi_O} {v} {S}}
+        {\GRuleName {\CLFFRsystem}{\CLFFCarrow\Pi_{0v}}}
+$$
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma} {\cdot} {\Delta \frcons \Pi_I} {\Delta' \frcons \Pi_M} {A} {1} {\{S_0\}} 
+           \andalso
+         \commit
+           \andalso
+         \CLFFRPEseq {\Gamma} {\cdot} {\Delta'\frcons \Pi_I} {\Pi_O} {S_0} {v} {S}
+        }
+        {\CLFFRECseq {\Gamma} {\Delta}  {\Pi_I \frins A} {\Pi_O} {1} {S}}
+        {\GRuleName {\CLFFRsystem}{\CLFFCarrow\Pi_{1v}}}
+$$
+
+
+
+$$
+\begin{array}{l}
+\nsrule {\CLFFRMCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S}}
+        {\CLFFRECseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S}}
+         {\GRuleName  {\CLFFRsystem} {\CLFNCarrow{}\CLFECarrow{}}}
+\\
+\proviso{\mbox{no forward chaining is possible}}
+\end{array}
+$$
+
+
+\noindent Pattern Expansion
+
+$$
+\nsrule {\CLFFRECseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {v} {S}}
+        {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {\cdot} {v} {S}}
+        {\GRuleName   {\CLFFRsystem} {\CLFECarrow{}\CLFPEarrow{}_p}}
+\qquad
+\nsrule {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {\Psi} {v} {S}}
+        {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {\one \Psi} {v} {S}}
+        {\GRuleName  {\CLFFRsystem} {\one_p}}
+$$
+
+$$
+\nsrule {\CLFFRPEseq {\Gamma} {A \Delta} {\Pi_I} {\Pi_O} {\Psi} {v} {S}}
+        {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {A \Psi} {v} {S}}
+        {\GRuleName  {\CLFFRsystem}{A}}
+$$
+
+$$
+\nsrule {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {S_1 S_2 \Psi} {v} {S}}
+        {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {S_1 \tensor S_2 \Psi} {v} {S}}
+        {\GRuleName   {\CLFFRsystem} {\tensor_p}}
+\qquad
+\begin{array}{l}
+\nsrule {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {S[a/x] \Psi} {v} {S}}
+        {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {\exists x.S \Psi} {v} {S}}
+        {\GRuleName  {\CLFFRsystem} {\exists_p}}
+\\
+\proviso{a \mbox{ not free in conclusion}}
+\end{array}
+$$
+
+$$
+\nsrule {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {S_1 \Psi} {0} {S}
+            \andalso
+         \CLFFRPEseq {\Gamma} {\Delta \cup (\Pi_I \frdiff \Pi_O)} {\emptyframe} {\emptyframe} {S_2 \Psi} {v} {S}
+        }
+        {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {S_1 \oplus S_2 \Psi} {0} {S}}
+        {\GRuleName  {\CLFFRsystem} {\oplus_{0vp}}}
+$$
+
+$$
+\nsrule {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_M} {S_1 \Psi} {1} {S}
+            \andalso
+         \CLFFRPEseq {\Gamma} {\Delta \cup (\Pi_I \frdiff \Pi_M)} {\Pi_M} {\Pi_O} {S_2 \Psi} {v} {S}
+        }
+        {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {S_1 \oplus S_2 \Psi} {v} {S}}
+        {\GRuleName  {\CLFFRsystem} {\oplus_{1vp}}}
+$$
+
+$$
+\nsrule {}
+        {\CLFFRPEseq {\Gamma} {\cdot} {\Pi} {\Pi} {\zero \Psi} {0} {S}}
+        {\GRuleName  {\CLFFRsystem}{\zero}}
+\qquad
+\nsrule {\CLFFRPEseq {A \Gamma} {\Delta} {\Pi_I} {\Pi_O} {\Psi} {v} {S}}
+        {\CLFFRPEseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {\bang A \Psi} {v} {S}}
+        {\GRuleName  {\CLFFRsystem}{\bang}}
+$$
+
+
+\noindent Forward Chaining
+
+$$
+\nsrule {}
+        {\CLFFRFCseq {\Gamma} {\cdot} {\Pi} {\Pi} {\{S\}} {0} {\{S\}}}
+        {\GRuleName {\CLFFRsystem} {\CLFFCarrow \{\}} }
+\qquad
+\mbox{no rule for atomic head } P
+$$
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma} {\cdot} {\Delta \frcons \Pi_I} {\Delta' \frcons \Pi_M} {A_2} {0} {\{S\}}
+            \andalso
+         \CLFFRNCseq {\Gamma} {\Delta'} {\Pi_M} {\Pi_O} {v} {A_1}
+        }
+        {\CLFFRFCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {A_1 \limp A_2} {v} {\{S\}}}
+        {\GRuleName {\CLFFRsystem} {\CLFFCarrow\limp_{0v}}}
+$$
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma} {\cdot} {\Delta \frcons \Pi_I} {\Delta' \frcons \Pi_M} {A_2} {1} {\{S\}}
+            \andalso
+         \CLFFRNCseq {\Gamma} {\cdot} {\Delta' \frcons \Pi_M} {\Delta'' \frcons \Pi_O} {v} {A_1}
+        }
+        {\CLFFRFCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {A_1 \limp A_2} {1} {\{S\}}}
+        {\GRuleName {\CLFFRsystem} {\CLFFCarrow\limp_{1v}}}
+$$
+
+
+$$
+\nsrule {\CLFFRFCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {A_2} {v} {\{S\}}
+            \andalso
+         \CLFFRNCseq {\Gamma} {\cdot} {\emptyframe} {\emptyframe} {\_} {A_1}
+        }
+        {\CLFFRFCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {A_1 \iimp A_2} {v} {\{S\}}}
+        {\GRuleName {\CLFFRsystem} {\CLFFCarrow\iimp}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFFRFCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {A_i} {v} {\{S\}}}
+        {\CLFFRFCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {A_1 \with A_2} {v} {\{S\}}}
+        {\GRuleName {\CLFFRsystem} {\CLFFCarrow\with}}
+\\
+\proviso{i=1,2}
+\end{array}
+\qquad
+\nsrule {\CLFFRFCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {A[t/x]} {v} {\{S\}}}
+        {\CLFFRFCseq {\Gamma} {\Delta} {\Pi_I} {\Pi_O} {\forall x.A} {v} {\{S\}}}
+        {\GRuleName {\CLFFRsystem} {\CLFFCarrow\forall}}
+$$
+
+
+%-----------------------------------------
+
+\subsection{A Tag-Frame-Fast presentation of CLF}
+
+\noindent Normal Object Checking
+
+$$
+\nsrule {\CLFTFECseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S}}
+        {\CLFTFNCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {\{S\}}}
+        {\GRuleName{\CLFTFsystem}{\{\}}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFNCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {A[t/x]}}
+        {\CLFTFNCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {\forall x.A}}
+        {\GRuleName{\CLFTFsystem}{\forall}}
+\\
+\proviso{l \mbox{ not free in conclusion}}
+\end{array}
+\qquad
+\nsrule {\CLFTFNCseq {\Lambda} {\Sigma_I[s+1]} {\Sigma_O} {A_1^s \Delta_I} {A_1^\_ \Delta_O} {s} {d} {v} {A_2}}
+        {\CLFTFNCseq {\Lambda} {\Sigma_I} {\Sigma_O[d-1]} {\Delta_I} {\Delta_O} {s} {d} {v} {A_1 \limp A_2}}
+        {\GRuleName{\CLFTFsystem}{\limp}}
+$$
+
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFNCseq {\Lambda} {\Sigma_I[l:=0]} {\Sigma_O} {\Delta_I} {\Delta_M} {s} {l} {0} {A_1}
+            \andalso
+         \CLFTFNCseq {\Lambda[l:=n]} {\Sigma_I} {\Sigma_O} {\Delta_M} {\Delta_O} {l} {d} {v} {A_2}
+        }
+        {\CLFTFNCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {0} {A_1 \with A_2}}
+        {\GRuleName{\CLFTFsystem}{\with_0}}
+\\
+\proviso{\tagsel{\D_I}{l} = \emptyset,\; l\not\in\dom{\Lambda}\cup\dom{\St_I} \cup \cod{\St_I}, 
+         \mand n\not\in\cod{\Lambda}}
+\end{array}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFNCseq {\Lambda} {\Sigma_I[l:=0]} {\Sigma_O} {\Delta_I} {\Delta_M} {s} {l} {1} {A_1}
+            \andalso
+         \CLFTFNCseq {\Lambda[l:=\Lambda(s)]} {\Sigma_I} {\Sigma_O} {\Delta_M} {\Delta_O} {l} {d} {v} {A_2}
+        }
+        {\CLFTFNCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {A_1 \with A_2}}
+        {\GRuleName{\CLFTFsystem}{\with_1}}
+\\
+\proviso{\tagsel{\D_I}{l} = \emptyset,\; l\not\in\dom{\Lambda}\cup\dom{\St_I} \cup \cod{\St_I}, 
+         \mand n\not\in\cod{\Lambda}}
+\end{array}
+$$
+
+$$
+\nsrule {}
+        {\CLFTFNCseq {\Lambda} {\Sigma} {\Sigma[s:=d][d+\Sigma(s)]} {\Delta} {\Delta} {s} {d} {1} {\top}}
+        {\GRuleName{\CLFTFsystem}{\top}}
+$$
+
+
+$$
+\begin{array}{l}
+\nsrule {\lookup{\Sigma_I}{\Sigma_M}{}{t}{l}
+         \andalso
+         \resid{D}{A}{G}
+         \andalso
+         \CLFTFNCseq {\Lambda} {\Sigma_M[d+1][l-1]} {\Sigma_O} {\Delta_I D^d \Delta'_I} {\Delta_O} {s} {d} {v} {G}
+        }
+        {\CLFTFMCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I D^t \Delta'_I} {\Delta_O} {s} {d} {v} {C}}
+        {\PRuleName {\CLFTFsystem} {D}}
+\\
+\proviso{\Lambda(l)=\Lambda(s) \mand C = P \mor \{S\}}
+\end{array}
+$$
+
+\noindent Expression Checking
+
+$$
+\nsrule {\CLFTFNCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S}}
+        {\CLFTFECseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S}}
+        {\GRuleName{\CLFTFsystem}{\CLFNCarrow{}\CLFECarrow{}}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFMCseq {\Lambda[l:=\Lambda(s)]} {\Sigma_I[l:=0]} {\Sigma_M} {\Delta_I} {\Delta_O} {l} {d} {0} {\{S'\}}
+         \andalso
+         \CLFTFPEseq {\Lambda}{\Sigma_M \smallsetminus l}{\Sigma_O}{\Delta_M}{\Delta_O}{S'} {s}{d}{v} {S}
+        }
+        {\CLFTFECseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S}}
+        {\GRuleName{\CLFTFsystem}{\mbox{what?}_0}}
+\\
+\proviso{l \mbox{ not in conclusion}}
+\end{array}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFMCseq {\Lambda[l:=\Lambda(s)]} {\Sigma_I[l:=0]} {\Sigma_M} {\Delta_I} {\Delta_O} {l} {d} {1} {\{S'\}}
+         \andalso
+         \CLFTFPEseq {\Lambda[l:=\Lambda(s)]}{\Sigma_M[l:=0]}{\Sigma_O}{\Delta_M}{\Delta_O}{S'} {l}{d}{v} {S}
+        }
+        {\CLFTFECseq {\Lambda} {\Sigma_I} {\Sigma_O[s:=d][d+\Sigma_O(s)] \smallsetminus l} 
+                     {\Delta_I} {\Delta_O} {s} {d} {1} {S}}
+        {\GRuleName{\CLFTFsystem}{\mbox{what?}_1}}
+\\
+\proviso{l \mbox{ not in conclusion}}
+\end{array}
+$$
+
+\noindent Pattern Expansion
+
+$$
+\nsrule {\CLFTFECseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S}}
+        {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {\cdot} {s} {d} {v} {S}}
+        {\GRuleName{\CLFTFsystem}{\CLFECarrow{}\CLFPEarrow{}_p}}
+$$
+
+$$
+\nsrule {\CLFTFPEseq {\Lambda} {\Sigma_I[s+1]} {\Sigma_O} {A^s\Delta_I} {A^\_\Delta_O} {\Psi} {s} {d} {v} {S}}
+        {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O[d-1]} {\Delta_I} {\Delta_O} {A \Psi} {s} {d} {v} {S}}
+        {\GRuleName{\CLFTFsystem}{A_p}}
+$$
+
+$$
+\nsrule {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {\Psi} {s} {d} {v} {S}}
+        {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {\one \Psi} {s} {d} {v} {S}}
+        {\GRuleName{\CLFTFsystem}{\one_p}}
+$$
+
+$$
+\nsrule {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {S_1 S_2 \Psi} {s} {d} {v} {S}}
+        {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {S_1 \tensor S_2 \Psi} {s} {d} {v} {S}}
+        {\GRuleName{\CLFTFsystem}{\tensor_p}}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {S[t/x] \Psi} {s} {d} {v} {S}}
+        {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {\exists x.S \Psi} {s} {d} {v} {S}}
+        {\GRuleName{\CLFTFsystem}{\exists_p}}
+\\
+\proviso{t \mbox{ not free in conclusion}}
+\end{array}
+$$
+
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFPEseq {\Lambda} {\Sigma_I[l:=0]} {\Sigma_M} {\Delta_I} {\Delta_M} {S_1 \Psi} {s} {l} {0} {S}
+             \andalso
+         \CLFTFPEseq {\Lambda[l:=n]} {\Sigma_M} {\Sigma_O} {\Delta_M} {\Delta_O} {S_2 \Psi} {l} {d} {v} {S}
+        }
+        {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {S_1 \oplus S_2 \Psi} {s} {d} {0} {S}}
+        {\GRuleName{\CLFTFsystem}{\oplus_{0p}}}
+\\
+\proviso{\tagsel{\D_I}{l} = \emptyset,\; l\not\in\dom{\Lambda}\cup\dom{\St_I} \cup \cod{\St_I}, 
+         \mand n\not\in\cod{\Lambda}}
+\end{array}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFPEseq {\Lambda} {\Sigma_I[l:=0]} {\Sigma_M} {\Delta_I} {\Delta_M} {S_1 \Psi} {s} {0} {0} {S}
+             \andalso
+         \CLFTFPEseq {\Lambda[l:=\Lambda(s)]} {\Sigma_M} {\Sigma_O} {\Delta_M} {\Delta_O} {S_2 \Psi} {l} {d} {v} {S}
+        }
+        {\CLFTFPEseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {S_1 \oplus S_2 \Psi} {s} {d} {0} {S}}
+        {\GRuleName{\CLFTFsystem}{\oplus_{1p}}}
+\\
+\proviso{\tagsel{\D_I}{l} = \emptyset,\; l\not\in\dom{\Lambda}\cup\dom{\St_I} \cup \cod{\St_I}, 
+         \mand n\not\in\cod{\Lambda}}
+\end{array}
+$$
+
+\noindent Monadic Object Checking
+
+$$
+\nsrule {\Sigma(s)=0}
+        {\CLFTFMCseq {\Lambda} {\Sigma} {\Sigma} {\Delta} {\Delta} {s} {d} {0} {\one}}
+        {\GRuleName{\CLFTFsystem}{\one}}
+$$
+
+$$
+\nsrule {\CLFTFMCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S[y/x]}}
+        {\CLFTFMCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {\exists x.S}}
+        {\GRuleName{\CLFTFsystem}{\exists}}
+\qquad
+\begin{array}{l}
+\nsrule {\CLFTFMCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S_i}}
+        {\CLFTFMCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S_1 \oplus S_2}}
+        {\GRuleName{\CLFTFsystem}{\oplus}}
+\\
+\proviso {i=1,2}
+\end{array}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFMCseq {\Lambda[l:=\Lambda(s)]} {\Sigma_I[l:=0]} {\Sigma_M} {\Delta_I} {\Delta_M} {l} {d} {0} {S_1}
+            \andalso
+         \CLFTFMCseq {\Lambda} {\Sigma_M \smallsetminus l} {\Sigma_O} {\Delta_M} {\Delta_O} {s} {d} {v} {S_2}
+        }
+        {\CLFTFMCseq {\Lambda} {\Sigma_I} {\Sigma_O} {\Delta_I} {\Delta_O} {s} {d} {v} {S_1 \tensor S_2}}
+        {\GRuleName{\CLFTFsystem}{\tensor_0}}
+\\
+\proviso{l \mbox{ not in conclusion}}
+\end{array}
+$$
+
+$$
+\begin{array}{l}
+\nsrule {\CLFTFMCseq {\Lambda[l:=\Lambda(s)]} {\Sigma_I[l:=0]} {\Sigma_M} {\Delta_I} {\Delta_M} {l} {d} {1} {S_1}
+            \andalso
+         \CLFTFMCseq {\Lambda[l:=\Lambda(s)]} {\Sigma_M[l:=0]} {\Sigma_O} {\Delta_M} {\Delta_O} {l} {d} {v} {S_2}
+        }
+        {\CLFTFMCseq {\Lambda} {\Sigma_I} {\Sigma_O[s:=d][d+\Sigma_O(s)] \smallsetminus l} {\Delta_I} {\Delta_O} 
+                     {s} {d} {v} {S_1 \tensor S_2}}
+        {\GRuleName{\CLFTFsystem}{\tensor_1}}
+\\
+\proviso{l \mbox{ not in conclusion}}
+\end{array}
+$$
+
+\end{document}

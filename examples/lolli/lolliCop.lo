@@ -1,0 +1,268 @@
+(*** 
+
+Adoption of lolliCop for this Lolli implementation which
+  1) doesn't have any extra-logical features (including negation as failure)
+  2) has higher-order terms
+
+Here is a signature for (most of) the constants of the following program.
+***)
+
+trm : type.
+frm : type.
+neg : frm -> frm.
+and : frm -> frm -> frm.
+or : frm -> frm -> frm.
+imp : frm -> frm -> frm.
+iff : frm -> frm -> frm.
+exists : (trm -> frm) -> frm.
+forall : (trm -> frm) -> frm.
+
+atm : type.
+posatm : frm -> atm.
+negatm : frm -> atm.
+
+disjunct : type.
+ground : (list atm) -> disjunct.
+quant : (trm -> disjunct) -> disjunct.
+
+
+(***
+ Utility Predicates
+***)
+reverse : list T -> list T -> o.
+rev : list T -> list T -> list T -> o.
+
+reverse L M :- rev L nil M.
+rev nil L L.
+rev (H :: T) L M :- rev T (H :: L) M.
+
+(* 
+  this predicate is necessary to mimic the \+member(-_ ,  Cla) 
+  in the original lolliCop code
+*)
+allPositive : list atm -> o.
+allPositive nil.
+allPositive ((posatm A) :: Rest) :- allPositive Rest.
+
+inst : disjunct -> list atm -> o.
+inst (ground Cla) Cla.
+inst (quant Cla) Res :- inst (Cla X) Res.
+
+negate : atm -> atm -> o.
+negate (posatm X) (negatm X).
+negate (negatm X) (posatm X).
+
+pick : T -> list T -> list T -> o.
+pick X (X :: L) L.
+pick X (H :: T) (H :: L) :- pick X T L.
+
+(*
+ Revised lolliCop prover
+*)
+bool : type.
+true : bool.
+false : bool.
+
+incr : bool -> o.
+cl : disjunct -> o.
+path : atm -> o.
+
+prove : list disjunct -> o.
+pr : bool -> list disjunct -> o.
+p : int -> o.
+prv : int -> list atm -> int -> o.
+
+prove Mat :- reverse Mat Mat1, pr false Mat1.
+
+pr Incr nil :- incr Incr => p 1.
+pr Incr ((ground Cla) :: Mat) :- cl (ground Cla) -o pr Incr Mat.
+pr Incr ((quant Cla) :: Mat) :- cl (quant Cla) => pr true Mat.
+
+#ordered p.
+p PathLim :- write (p PathLim), nl,
+    cl Cla , 
+    inst Cla Cla1,  
+    allPositive Cla1, 
+    prv 0 Cla1 PathLim.
+p PathLim :- ! incr true, PL is (PathLim + 1) , p PL.
+
+writeSp : int -> A -> o.
+writeSp 0 X :- write X.
+writeSp N X :- N > 0, write " ", N' is (N - 1), writeSp N' X.
+
+prv Indent nil N :- top.
+prv Indent (Lit :: Cla) PathLim :- 
+(** writeSp Indent "prv ", write Lit, nl, **)
+negate Lit NegLit , (
+ ( (** writeSp Indent "checking for ", write NegLit, nl, **)
+   path NegLit , 
+   (** writeSp Indent "found in path\n", **) 
+   top 
+   ; 
+   (** writeSp Indent "not in path\n", **)
+   cl Cla1 , 
+   (** writeSp Indent "trying ", write Cla1, nl, **)
+   inst Cla1 Cla2 , 
+   pick NegLit Cla2 Cla3 ,
+   (Cla1 = ground X ; Cla1 = quant Y , PathLim > 0) , 
+   PL is (PathLim - 1) ,
+   (** writeSp Indent "adding to path: ", write Lit, nl, Ind is (Indent + 1), **)
+   (path Lit => prv Ind Cla3 PL)
+  ) 
+  & 
+  prv Indent Cla PathLim
+).
+
+(***
+Sample matrix:
+
+  (quant x \ quant y \ ground ((posatm (p x)) :: (posatm (q x y)) :: nil)) ::
+  (ground ((negatm (p 1)) :: (negatm (q 1 2)) :: nil)) ::
+  nil
+
+Sample queries: 
+***)
+
+p : frm.
+f : trm -> frm.
+a : trm.
+b : trm.
+
+#query 1 2 1
+ prove ((ground ((posatm p) :: nil)) :: (ground ((negatm p) :: nil)) :: nil). 
+
+#query 1 1 1
+  prove ((quant x \ ground ((posatm (f x)) :: nil)) :: (ground ((negatm (f a)) :: nil)) :: nil). 
+
+(***
+  prove ((quant x \ ground ((posatm (f x)) :: (posatm p) :: nil)) :: (quant x \ ground ((negatm (f x)) :: (negatm p) :: nil)) :: nil).
+  % not provable but program loops forever
+***)
+
+#query 0 1 1
+ prove ((ground ((posatm (f a)) :: (posatm p) :: nil)) :: (ground ((negatm (f a)) :: (negatm p) :: nil)) :: nil).
+
+#query 1 1 1
+  prove ((quant x \ ground ((posatm (f x)) :: (posatm p) :: nil)) :: (quant x \ ground ((negatm (f x)) :: (negatm p) :: nil)) ::
+         (ground ((posatm (f a)) :: (negatm p) :: nil)) :: (ground ((negatm (f b)) :: (posatm p) :: nil)) :: nil).
+
+
+
+(***
+
+ A front-end to compile a formula into a matrix.
+
+***)
+
+append : list T -> list T -> list T -> o.
+append nil L L.
+append (H :: T) L (H :: R) :- append T L R.
+
+member : T -> list T -> o.
+member X (X :: T).
+member X (H :: T) :- member X T.
+
+ok : type.
+good : ok.
+bad : ok.
+check : (list atm) -> ok -> o.
+check nil good.
+check (A :: As) bad :- negate A NegA , member NegA As.
+check (A :: As) Ok :- check As Ok.
+
+filter : list disjunct -> list disjunct -> o.
+filter nil nil.
+filter ((quant H) :: T) ((quant H) :: L) :- pi x \ filter ((H x) :: T) ((H x) :: L).
+filter ((ground H) :: T) ((ground H) :: L) :- check H good ,  filter T L.
+filter ((ground H) :: T) L :- check H bad ,  filter T L.
+
+(*
+ quant_all distributes the essentially existential quantifier over the disjuncts
+*)
+quantAll : ((trm -> disjunct) -> disjunct) -> (trm -> list disjunct) -> list disjunct -> o.
+quantAll Q (x \ nil) nil.
+quantAll Q (x \ (H x) :: (T x)) ((Q H) :: L) :- quantAll Q T L.
+
+(*
+ distr distributes a conjunct over a disjunct
+*)
+distr  :  list disjunct -> list disjunct -> list disjunct -> o.
+distr1 :  disjunct -> list disjunct -> list disjunct -> o.
+distr2 :  disjunct -> disjunct -> disjunct -> o.
+distr3 :  list atm -> disjunct -> disjunct -> o.
+
+distr nil D2s nil.
+distr (D1 :: D1s) D2s D :-
+    distr1 D1 D2s D' , 
+    distr D1s D2s D'' , 
+    append D' D'' D.
+
+distr1 D1 nil nil.
+distr1 D1 (D2 :: D2s) (D' :: D'') :- 
+    distr2 D1 D2 D' , 
+    distr1 D1 D2s D''.
+
+distr2 (ground A1) D2 D :- distr3 A1 D2 D.
+distr2 (quant A1) D2 (quant D) :- pi x \ distr2 (A1 x) D2 (D x).
+
+distr3 A1 (ground A2) (ground A) :- append A1 A2 A.
+distr3 A1 (quant A2) (quant A) :- pi x \ distr3 A1 (A2 x) (A x).
+
+(*
+ dnf translates to skolemized disjunctive normal form
+
+*)
+sk : (list trm) -> int -> int -> trm.
+
+dnf : trm -> frm -> list disjunct -> o.
+#ordered dnf.
+
+dnf Sk (neg (neg F)) G :- dnf Sk F G.
+dnf Sk (neg (and F G)) H :- dnf Sk (or (neg F) (neg G)) H.
+dnf Sk (neg (or F G)) H :- dnf Sk (and (neg F) (neg G)) H.
+dnf Sk (neg (imp F G)) H :- dnf Sk (and F (neg G)) H.
+dnf Sk (neg (iff F G)) H :- dnf Sk (and (or (neg F) (neg G)) (or F G)) H.
+dnf Sk (neg (exists F)) G :- dnf Sk (forall x \ neg (F x)) G.
+dnf Sk (neg (forall F)) G :- dnf Sk (exists x \ neg (F x)) G.
+dnf Sk (imp F G) H :- dnf Sk (or (neg F) G) H.
+dnf Sk (iff F G) H :- dnf Sk (or (and F G) (and (neg F) (neg G))) H.
+
+dnf (sk Evs Idx N) (forall E) A :- 
+    N' is (N + 1) ,  
+    dnf (sk Evs Idx N') (E (sk Evs Idx N)) A.
+
+dnf (sk Evs Idx N) (exists E) A :- 
+    (pi x \ dnf (sk (x :: Evs) Idx N) (E x) (A1 x)),  
+    quantAll quant A1 A.
+
+dnf (sk Evs Idx N) (or F G) H :- 
+    Idx1 is (Idx + 1) ,  
+    dnf (sk Evs Idx N) F H1 ,  
+    dnf (sk Evs Idx1 0) G H2 ,  
+    append H1 H2 H.
+
+dnf (sk Evs Idx N) (and F G) H :- 
+    Idx1 is (Idx + 1) ,  
+    dnf (sk Evs Idx N) F H1 ,  
+    dnf (sk Evs Idx1 0) G H2 ,  
+    distr H1 H2 H3 ,  
+    filter H3 H.
+
+
+dnf Sk (neg A) (ground (negatm A :: nil) :: nil).
+dnf Sk A       (ground (posatm A :: nil) :: nil).
+
+compile : frm -> list disjunct -> o.
+compile F L :- once (dnf (sk nil 0 0) F L).
+
+try : frm -> o.
+try F :- compile F M ,  prove M.
+
+
+p : frm.
+f : trm -> frm.
+
+#query 1 1 1
+ try (imp (and (exists x \ imp p (f x)) (exists x \ imp (f x) p)) (exists x \ iff p (f x))).
+
+

@@ -1,0 +1,36 @@
+(*
+   Asynchronous pi-calculus
+   Author: Frank Pfenning
+*)
+
+chan : type.
+expr : type.
+
+zero : expr.
+par : expr -> expr -> expr.
+new : (chan -> expr) -> expr.
+rep : expr -> expr.
+out : chan -> chan -> expr.
+in : chan -> (chan -> expr) -> expr.
+print : chan -> expr.  (** for tracing **)
+
+proc : expr -> o.
+msg : chan -> chan -> o.
+
+proc zero -o {one}.
+proc (par P Q) -o {proc P, proc Q}.
+proc (new P) -o {sigma u \ proc (P u)}.
+proc (rep P) -o {!proc P}.
+proc (out U V) -o {msg U V}.
+proc (in U P) -o {pi V \ msg U V -o {proc (P V)}}.
+proc (print U), write U, nl -o {one}.
+
+(****
+Examples:
+
+pi a \ pi b \ proc (par (in a u \ print u) (out a b)) -o {one}.
+
+pi a \ pi b \ 
+  proc (par (in a u \ print u) (par (in a v \ print a) (out a b))) -o {top}.
+
+****)

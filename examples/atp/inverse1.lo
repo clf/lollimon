@@ -1,0 +1,97 @@
+(*
+   Simple encoding of inverse method for a fragment of classical logic
+
+   Author: Jeff Polakow
+*)
+
+atm : type.
+prop : type.
+^ : atm -> prop.
+imp : prop -> prop -> prop.
+and : prop -> prop -> prop.
+or : prop -> prop -> prop.
+
+(* polarities of subformulas *)
+polarity : type.
+plus : polarity.		(* right *)
+minus : polarity.		(* left *)
+
+neg : polarity -> polarity -> o.
+neg plus minus.
+neg minus plus.
+
+hyp : prop -> o.
+conc : prop -> o.
+prove : prop -> o.
+
+subformula : polarity -> prop -> o.
+
+!subformula P (imp A B),
+!neg P Q
+-o {!subformula Q A,
+    !subformula P B}.
+
+!subformula P (and A B)
+-o {!subformula P A,
+    !subformula P B}.
+
+!subformula plus (or A B)
+-o {!subformula plus A,
+    !subformula plus B}.
+
+(** this feels a little strange **)
+!subformula minus (or A B)
+-o {!subformula minus A; !subformula minus B}.
+
+!subformula plus (^ A),
+!subformula minus (^ A)
+-o {!hyp (^ A), !conc (^ A)}.
+
+
+!conc A, !conc B, !subformula plus (and A B)
+-o {!conc (and A B)}.
+
+!hyp A, !subformula minus (and A B)
+-o {!hyp (and A B)}.
+
+!hyp B, !subformula minus (and A B)
+-o {!hyp (and A B)}.
+
+
+!conc A, !subformula plus (or A B)
+-o {!conc (or A B)}.
+
+!conc B, !subformula plus (or A B)
+-o {!conc (or A B)}.
+
+(** this also feels wrong **)
+(!hyp A, !conc C) & (!hyp B, !conc C), !subformula minus (or A B)
+-o {!hyp (or A B)}.
+
+
+!conc B, !subformula plus (imp A B)
+
+-o {!conc (imp A B)}.
+
+
+prove A o- (subformula plus A => {conc A}).
+
+
+(*** Examples ***)
+p : atm.
+q : atm.
+
+#query 1 2 1 
+prove (imp (imp (imp (^ p)( ^ q)) (^ p)) (^ p)).
+
+#query 0 1 1
+prove (imp (^ p) (^ q)).
+
+#query 0 1 1
+prove (imp (or (^ p) (^ q)) (^ p)).
+
+#query 1 2 1
+prove (imp (or (^ p) (^ q)) (or (^ p) (^ q))).
+
+#query 1 2 1
+prove (imp (imp (or (^ p) (^ p)) (^ q)) (imp (^ p) (^ q))).

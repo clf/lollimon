@@ -1,0 +1,63 @@
+(*
+   Call-by-name and futures
+   Example from "Monadic Concurrent Linear Logic Programming"
+   Lopez, Pfenning, Polakow, and Watkins, submitted Feb 2005
+*)
+
+exp : type.			(* expressions *)
+frame : type.			(* frames *)
+dest : type.			(* destinations *)
+
+eval : exp -> dest -> o.	(* evaluate an expression *)
+comp : frame -> dest -> o.	(* compute a frame *)
+return : exp -> dest -> o.	(* return value to destination *)
+
+(* functions, with call-by-name *)
+lam : (exp -> exp) -> exp.	(* lambda-abstraction *)
+app : exp -> exp -> exp.	(* application *)
+
+eval (lam x \ E x) D
+-o {return (lam x \ E x) D}. 
+
+app1 : dest -> exp -> frame.
+
+eval (app E1 E2) D
+-o {sigma d1 \ eval E1 d1, comp (app1 d1 E2) D}.
+
+return (lam x \ E1' x) D1,
+comp (app1 D1 E2) D
+-o {eval (E1' E2) D}.
+
+(* futures *)
+future : exp -> exp.		(* future e *)
+
+promise : dest -> exp.		(* promise p, p a destination *)
+future1 : dest -> frame.
+promise1 : dest -> frame.
+
+eval (future E) D
+-o {sigma d1 \ sigma p \
+      eval E d1, comp (future1 d1) p,
+      return (promise p) D}.
+
+return V D1,
+comp (future1 D1) P
+-o {!return V P}.
+
+eval (promise P) D
+-o {comp (promise1 P) D}.
+
+!return V1 P,
+comp (promise1 P) D
+-o {return V1 D}.
+
+(* top-level evaluation predicate *)
+evaluate : exp -> o.
+
+evaluate E o- (pi d0 \ eval E d0 -o {sigma V \ return V d0, write V, nl}).
+
+(* examples *)
+(*
+evaluate (app (lam x \ x) (lam z \ z)).
+evaluate (app (lam x \ x) (future (lam z \ z))).
+*)

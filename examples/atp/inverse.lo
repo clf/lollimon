@@ -1,0 +1,160 @@
+(*
+   Inverse method for linear logic
+   lolli, tensor with
+
+   Author: Frank Pfenning
+
+   First stab, does not yet work
+   This can never saturate, but can shortcut upon success
+   Suffers from lack of fairness in backchaining
+*)
+
+prop : type.
+lolli : prop -> prop -> prop.
+tensor : prop -> prop -> prop.
+with : prop -> prop -> prop.
+
+(* sequents *)
+seq : list prop -> prop -> o.
+
+(* polarities of subformulas *)
+polarity : type.
+plus : polarity.		(* right *)
+minus : polarity.		(* left *)
+
+neg : polarity -> polarity -> o.
+neg plus minus.
+neg minus plus.
+
+subformula : polarity -> prop -> o.
+
+!subformula P (lolli A B),
+!neg P Q
+-o {!subformula Q A,
+    !subformula P B}.
+
+!subformula P (tensor A B)
+-o {!subformula P A,
+    !subformula P B}.
+
+!subformula P (with A B)
+-o {!subformula P A,
+    !subformula P B}.
+
+!subformula plus A,
+!subformula minus A
+-o {!seq (A::nil) A}.
+
+(* thawing a sequent for inference *)
+thaw : int -> list prop -> prop -> o.
+left : int -> prop -> o.
+right : int -> prop -> o.
+
+thaw K (L::G) R
+-o {left K L,
+    thaw K G R}.
+
+thaw K nil R
+-o {right K R}.
+
+(* one step inference, with one or two premises *)
+infer : int -> o.
+
+mode : type.
+mult : mode.
+add2 : mode.
+freeze : mode -> o.
+frozen : mode -> list prop -> prop -> o.
+
+infer 1,
+!subformula plus (lolli A B),
+left 1 A, right 1 B, write "lolliR ", write A, write " ", write B, nl
+-o {right 1 (lolli A B), freeze mult}.
+
+infer 2,
+!subformula minus (lolli A B),
+right 1 A, left 2 B, write "lolliL ", write A, write " ", write B, nl
+-o {left 2 (lolli A B), freeze mult}.
+
+infer 2,
+!subformula plus (tensor A B),
+right 1 A, right 2 B, write "tensorR ", write A, write " ", write B, nl
+-o {right 2 (tensor A B), freeze mult}.
+
+infer 1,
+!subformula minus (tensor A B),
+left 1 A, left 1 B, write "tensorL ", write A, write " ", write B, nl
+-o {left 1 (tensor A B), freeze mult}.
+
+infer 2,
+!subformula plus (with A B),
+right 1 A, right 2 B, write "withR ", write A, write " ", write B, nl
+-o {right 1 (with A B), right 2 (with A B), freeze add2}.
+
+infer 1,
+!subformula minus (with A B),
+left 1 A, write "withL1 ", write A, write " ", write B, nl
+-o {left 1 (with A B), freeze mult}.
+
+infer 1,
+!subformula minus (with A B),
+left 1 B, write "withL2 ", write A, write " ", write B, nl
+-o {left 1 (with A B), freeze mult}.
+
+(* multiplicative or one-premise additive *)
+freeze mult,
+(right 1 R; right 2 R)
+-o {frozen mult nil R}.
+
+frozen mult G R,
+(left 1 L; left 2 L)
+-o {frozen mult (L::G) R}.
+
+(* two-premise additive *)
+freeze add2,
+(right 1 R, right 2 R)
+-o {frozen add2 nil R}.
+
+frozen add2 G R,
+(left 1 L, left 2 L)
+-o {frozen add2 (L::G) R}.
+
+step : prop -> o.
+assert : prop -> o.
+
+(*
+  these two clauses appear to be always tried in the same order
+  this means if some one-premise rules applies, it will never try
+  any two-premise rules (because sequent are unrestricted, the same
+  one-premise rule will continue to apply)
+*)
+step A <= seq G R, (thaw 1 G R -o {infer 1 -o {assert A}}).
+step A <= seq G1 R1, seq G2 R2, (thaw 1 G1 R1 -o thaw 2 G2 R2 -o {infer 2 -o {assert A}}).
+
+#ordered assert.
+(* if no frozen sequent was generated, we must try another inference *)
+assert A o- frozen P nil A, write "Derived goal sequent: ",
+            write (seq nil A), nl.
+assert A o- frozen P G' R', write (seq G' R'), nl,
+            !(seq G' R' => step A).
+	    (* make explicit: no temp assumptions may survive *)
+
+prove : prop -> o.
+prove A <= (subformula plus A => {step A}).
+
+a : prop.
+b : prop.
+c : prop.
+(* first group successfully proven *)
+(*
+prove (lolli a a).
+prove (lolli (with a b) a).
+prove (lolli (with a b) b).
+prove (lolli a (with a a)).
+*)
+
+(* next two go into an infinite loop *)
+(*
+prove (lolli a (lolli b (tensor a b))).
+prove (lolli (tensor a b) (tensor b a)).
+*)

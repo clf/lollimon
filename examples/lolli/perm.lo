@@ -1,0 +1,24 @@
+(***
+ Standard Lolli permute.
+***)
+perm : list T -> list T -> o.
+elm :  T -> o.
+perm1 :  list T -> o.
+permW :  list T -> o.
+fail : o.
+
+perm (H::T) L o- elm H -o perm T L.
+perm nil L o- perm1 L.
+
+perm1 nil.
+perm1 (H::L) o- elm H , perm1 L.
+
+permW (H::T) o- elm H -o permW T.
+permW nil o- perm1 L, !(write L, nl, fail).
+
+(*** Queries ***)
+
+#query 2 3 1 perm (1::2::nil) L.
+
+#query 24 25 1 pi p \ perm (1::2::p::3::nil) (L p).
+

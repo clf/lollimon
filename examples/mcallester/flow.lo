@@ -1,0 +1,73 @@
+(*
+   Flow analysis in lambda-calculus with pairing
+   David McAllester: On the Complexity Analysis of Static Analyses
+   JACM 49(4), July 2002, pp.512-537
+
+   Scribe: Frank Pfenning
+*)
+
+(* expressions, using uniquely named variables *)
+(* could be achieved by a pre-pass, if starting from hoas *)
+exp : type.
+var : string -> exp.
+pair : exp -> exp -> exp.
+pi1 : exp -> exp.
+pi2 : exp -> exp.
+app : exp -> exp -> exp.
+lam : string -> exp -> exp.
+
+compute : exp -> o.
+evalsto : exp -> exp -> o.
+stepsto : exp -> exp -> o.
+
+compute (app F W)
+=> {!compute F, !compute W}.
+
+compute (lam X E)
+=> {!evalsto (lam X E) (lam X E),
+    !compute E}.
+
+compute (app F W),
+evalsto F (lam X U)
+=> {!stepsto (var X) W, !stepsto (app F W) U}.
+
+stepsto U W,
+evalsto W V
+=> {!evalsto U V}.
+
+compute (pair E1 E2)
+=> {!compute E1, !compute E2, !evalsto (pair E1 E2) (pair E1 E2)}.
+
+compute (pi1 U)
+=> {!compute U}.
+
+compute (pi2 U)
+=> {!compute U}.
+
+compute (pi1 U),
+evalsto U (pair E1 E2)
+=> {!stepsto (pi1 U) E1}.
+
+compute (pi2 U),
+evalsto U (pair E1 E2)
+=> {!stepsto (pi2 U) E2}.
+
+print : o.
+#ordered print.
+print <= evalsto E E', write (evalsto E E'), nl, zero.
+print.
+
+evaluate : exp -> o.
+evaluate E
+ <= (compute E => {print}).
+
+(* examples *)
+(*
+evaluate (app (lam "x" (var "x")) (lam "y" (var "y"))).
+
+evaluate (app (lam "x" (pair (pi2 (var "x")) (pi1 (var "x"))))
+              (pair (lam "y" (lam "z" (var "y"))) (lam "u" (lam "w" (var "w"))))).
+
+evaluate (app (lam "x" (app (var "x") (var "x")))
+	      (lam "y" (app (var "y") (var "y")))).
+*)

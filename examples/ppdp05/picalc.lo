@@ -1,0 +1,29 @@
+(*
+   Asynchronous pi-calculus
+   Example from "Monadic Concurrent Linear Logic Programming"
+   Lopez, Pfenning, Polakow, and Watkins, submitted Feb 2005
+*)
+
+expr : type.
+chan : type.
+
+par : expr -> expr -> expr.
+zero : expr.
+new : (chan -> expr) -> expr.
+
+in : chan -> (chan -> expr) -> expr.
+rin : chan -> (chan -> expr) -> expr.
+out : chan -> chan -> expr.
+
+proc : expr -> o.
+msg : chan -> chan -> o.
+
+proc (par P Q) -o {proc P, proc Q}.
+proc zero -o {one}.
+proc (new x \ P x) -o {sigma c \ proc (P c)}.
+proc (out C V) -o {msg C V}.
+proc (in C x \ P x) -o {pi V \ msg C V -o {proc (P V)}}.
+proc (rin C x \ P x) -o {!pi V \ msg C V -o {proc (P V)}}.
+
+#query 1 2 5
+pi c \ pi x \ proc (par (out c x) (in c y \ zero)) -o {one}.

@@ -1,0 +1,232 @@
+(*
+   callcc in linear destination passing style
+   Author: Frank Pfenning
+
+   All frames are unrestricted 
+*)
+tp : type.
+nat : tp.
+arrow : tp -> tp -> tp.
+contTy : tp -> tp.
+
+exp : type.
+z : exp.
+s : exp -> exp.
+case : exp -> exp -> (exp -> exp) -> exp.
+lam : (exp -> exp) -> exp.
+app : exp -> exp -> exp.
+fix : (exp -> exp) -> exp.
+let : exp -> (exp -> exp) -> exp.
+callcc : (exp -> exp) -> exp.
+throw : exp -> exp -> exp.
+try : exp -> exp -> exp.
+fail : exp.
+
+dest : type.
+cont : dest -> exp.
+
+inst : type.
+app1 : dest -> exp -> inst.
+app2 : exp -> dest -> inst.
+s1 : dest -> inst.
+case1 : dest -> exp -> (exp -> exp) -> inst.
+let1 : dest -> (exp -> exp) -> inst.
+throw1 : dest -> exp -> inst.
+throw2 : exp -> dest -> inst.
+try1 : dest -> exp -> dest -> inst.
+
+eval : exp -> dest -> o.
+return : exp -> dest -> o.
+comp : inst -> dest -> o.
+
+evaluate : exp -> exp -> o.
+of : exp -> tp -> o.
+
+of (lam x \ E x) (arrow T1 T2)
+ :- (pi x \ of x T1 => of (E x) T2).
+of (app E1 E2) T1
+ :- of E1 (arrow T2 T1), of E2 T2.
+of z nat.
+of (s E) nat
+ :- of E nat.
+of (case E1 E2 (x \ E3 x)) T
+ :- of E1 nat,
+    of E2 T,
+    (pi x \ of x nat => of (E x) T).
+of (fix (x \ E x)) T
+ :- (pi x \ of x T => of (E x) T).
+of (let E1 (x \ E2 x)) T
+ :- of (E2 E1) T.  (* let is polymorphic *)
+of (callcc k \ E k) T
+ :- (pi k \ of k (contTy T) => of (E k) T).
+of (throw E1 E2) T
+ :- of E1 (contTy T1),
+    of E2 T1.
+of (try E1 E2) T
+ :- of E1 T,
+    of E2 T.
+of (fail) T.
+
+(* linear -- only one thread of evaluation *)
+evaluate E V o- (pi d \ eval E d -o {return V d}).
+
+(*
+   If a captured continuation D occurs in the final return
+   value, the "evaluate" predicate above fails, since
+   the return value V does not make sense at the top level.
+   In that case we would have to construct a closure,
+   or we can simply verify termination without showing
+   the value.
+*)
+terminates : exp -> o.
+terminates E o- (pi d \ eval E d -o {sigma V \ return V d}).
+
+(* functions *)
+eval (lam x \ E x) D
+  -o {return (lam x \ E x) D}.
+
+eval (app E1 E2) D
+  -o {sigma d1 \ eval E1 d1, !comp (app1 d1 E2) D}.
+
+comp (app1 D1 E2) D
+  -o return V1 D1
+  -o {sigma d2 \ eval E2 d2, !comp (app2 V1 d2) D}.
+
+comp (app2 (lam x \ E1' x) D2) D -o return V2 D2
+  -o {eval (E1' V2) D}.
+
+(* natural numbers *)
+eval z D
+  -o {return z D}.
+
+eval (s E1) D
+  -o {sigma d1 \ eval E1 d1, !comp (s1 d1) D}.
+
+comp (s1 D1) D
+  -o return V1 D1
+  -o {return (s V1) D}.
+
+eval (case E1 E2 (x \ E3 x)) D
+  -o {sigma d1 \ eval E1 d1, !comp (case1 d1 E2 (x \ E3 x)) D}.
+
+comp (case1 D1 E2 (x \ E3 x)) D
+  -o return z D1
+  -o {eval E2 D}.
+
+comp (case1 D1 E2 (x \ E3 x)) D 
+  -o return (s V1') D1
+  -o {eval (E3 V1') D}.
+
+(* recursion *)
+eval (fix (x \ E1 x)) D
+  -o {eval (E1 (fix (x \ E1 x))) D}.
+
+(* definitions *)
+eval (let E1 x \ E2 x) D
+  -o {sigma d1 \ eval E1 d1, !comp (let1 d1 x \ E2 x) D}.
+
+comp (let1 D1 x \ E2 x) D
+  -o return V1 D1
+  -o {eval (E2 V1) D}.
+
+(* callcc *)
+eval (callcc k \ E1 k) D
+  -o {eval (E1 (cont D)) D}.
+
+eval (throw E1 E2) D
+  -o {sigma d1 \ eval E1 d1, !comp (throw1 d1 E2) D}.
+
+comp (throw1 D1 E2) D
+  -o return V1 D1
+  -o {sigma d2 \ eval E2 d2, !comp (throw2 V1 d2) D}.
+
+comp (throw2 (cont D1) D2) D
+  -o return V2 D2
+  -o {return V2 D1}.
+
+eval (cont D1) D
+  -o {return (cont D1) D}.
+
+(* exceptions *)
+(*
+   Evaluation with exceptions must establish top-level handler,
+   where evaluation with an unhandled exception fails (other options are possible).
+   Frames must be affine or unrestricted (chose unrestricted ones, except "handle")
+   Does not work with well continuations, since handlers are linear (or at least affine)
+*)
+handle : dest -> o.
+evaluate_exn : exp -> exp -> o.
+
+(*** Jeff's version ***)
+evaluate_exn E V o- (pi d \ eval E d -o handle d -o {return V d, handle d}).
+
+eval (try E1 E2) D
+  -o handle D'
+  -o {sigma d1 \ eval E1 d1, !comp (try1 d1 E2 D') D, handle d1}.
+
+comp (try1 D1 E2 D') D
+  -o return V1 D1
+  -o handle D1
+  -o {return V1 D, handle D'}.
+
+eval (fail) D''
+  -o comp (try1 D1 E2 D') D
+  -o handle D1
+  -o {eval E2 D, handle D'}.
+
+(*** Frank's version ***
+evaluate_exn E V o- (pi d \ eval E d -o comp (handle d) -o {return V d, comp (handle d)}).
+
+eval (try E1 E2) D
+  -o comp (handle D')
+  -o {sigma d1 \ eval E1 d1, !comp (try1 d1 E2 D') D, comp (handle d1)}.
+
+comp (try1 D1 E2 D') D
+  -o return V1 D1
+  -o comp (handle D1)
+  -o {return V1 D, comp (handle D')}.
+
+eval (fail) D''
+  -o comp (try1 D1 E2 D') D
+  -o comp (handle D1)
+  -o {eval E2 D, comp (handle D')}.
+***)
+
+(* Examples
+
+evaluate (s z) V.
+
+of (callcc k \ s z) nat.
+evaluate (callcc k \ s z) V.
+
+of (callcc k \ throw k (s z)) nat.
+evaluate (callcc k \ throw k (s z)) V.
+evaluate (callcc k \ s (throw k (s z))) V.
+evaluate (s (callcc k \ s (throw k (s z)))) V.
+
+of (lam f \ lam k \ callcc ret \ throw k (app f (callcc r \ throw ret r))) T.
+
+of (let (lam f \ lam k \ callcc ret \ throw k (app f (callcc r \ throw ret r)))
+    compose \
+      s (s (s (callcc k \ s (s (throw (app (app compose (lam x \  x)) k) (s z)))))))
+nat.
+
+evaluate
+  (let (lam f \ lam k \ callcc ret \ throw k (app f (callcc r \ throw ret r)))
+      compose \
+      s (s (s (callcc k \ s (s (throw (app (app compose (lam x \  x)) k) (s z)))))))
+V, V = (s (s (s (s z)))).
+
+evaluate
+  (let (lam f \ lam k \ callcc ret \ throw k (app f (callcc r \ throw ret r)))
+      compose \
+      s (s (s (callcc k \ s (s (throw (app (app compose (lam x \ s x)) k) (s z)))))))
+V, V = (s (s (s (s (s z))))).
+
+of (s (app (callcc k \ throw k (lam x \ s (throw k (lam y \ y)))) (s z))) nat.
+evaluate (s (app (callcc k \ throw k (lam x \ s (throw k (lam y \ y)))) (s z))) V, V = s (s z).
+
+evaluate_exn (try (s z) z) V, V = s z.
+evaluate_exn (try (s (fail)) z) V, V = z.
+evaluate_exn (s (try (s (try (s (fail)) (fail))) (s z))) V, V = s (s z).
+*)

@@ -1,0 +1,69 @@
+(*
+   Liveness analysis
+   David McAllester: On the Complexity Analysis of Static Analyses
+   JACM 49(4), July 2002, pp.512-537
+
+   Scribe: Frank Pfenning
+*)
+
+var : type.
+exp : type.
+
+v : int -> var.
+
+op : var -> var -> exp.
+label : type.
+l : int -> label.
+
+assign : label -> var -> exp -> o.
+goto : label -> label -> o.
+if : label -> var -> label -> o.
+halt : label -> o.
+
+succ : label -> label -> o.
+succ (l I) (l J) <= J is I+1.
+distinct : var -> var -> o.
+distinct (v N) (v M) <= N > M; M > N.
+
+live : var -> label -> o.
+
+assign L X (op Y Z)
+=> {!live Y L, !live Z L}.
+
+assign L X (op Y Z),
+succ L L',
+live W L',
+distinct W X
+=> {!live W L}.
+
+goto L L',
+live W L'
+=> {!live W L}.
+
+if L X L',
+live W L'
+=> {!live W L}.
+
+if L X L',
+succ L L'',
+live W L''
+=> {!live W L}.
+
+(* Example *)
+
+assign (l 1) (v 1) (op (v 2) (v 3)).
+assign (l 2) (v 2) (op (v 1) (v 3)).
+if     (l 3) (v 2) (l 6).
+goto   (l 4) (l 1).
+if     (l 5) (v 4) (l 5).
+halt   (l 6).
+
+(* Testing *)
+print : o.
+test : o.
+
+#ordered print.
+print <= live X L, write (live X L), nl, zero.
+print.
+
+test <= {print}.

@@ -1,0 +1,41 @@
+(*
+   Simple mergesort
+   Author: Frank Pfenning
+
+   Would benefit from ordered context
+   Does not guarantee n log(n) worst-case time (depends on scheduler)
+*)
+
+init : list int -> o.
+sorted : list int -> o.
+merge : list int -> list int -> list int -> o.
+msort : list int -> list int -> o.
+
+(* merge +K +L -M merges sorted K and L, removing duplicates *)
+merge K nil K.
+merge nil L L.
+merge (X::K) (Y::L) (Y::M) o- X > Y, merge (X::K) L M.
+merge (X::K) (Y::L) (X::M) o- Y > X, merge K (Y::L) M.
+merge (X::K) (Y::L) (X::M) o- X = Y, merge K L M.
+
+sorted K, sorted L, merge K L M
+-o {sorted M}.
+
+msort nil K o- {sorted K}.
+msort nil nil o- {one}.
+msort (X::L) K o- (sorted (X::nil) -o msort L K).
+
+(* two equivalent alternatives *)
+
+(*
+msort nil K o- {sorted K; K = nil}.
+msort (X::L) K o- (sorted (X::nil) -o msort L K).
+*)
+
+(*
+msort nil nil o- {one}.
+msort nil K o- {sorted K}.
+msort (X::L) K o- (sorted (X::nil) -o msort L K).
+*)
+
+

@@ -1,0 +1,56 @@
+(*
+   Synchronous pi-calculus
+   Author: Frank Pfenning
+
+   We do not identify zero with empty sum
+   See Examples and Applications TR for such a formulation
+*)
+
+chan : type.
+expr : type.
+sum : type.
+act : type.
+
+zero : expr.
+par : expr -> expr -> expr.
+new : (chan -> expr) -> expr.
+rep : expr -> expr.
+sync : sum -> expr.
+
+alt : sum -> sum -> sum.
+guard : act -> sum.
+
+silent : expr -> act.
+in : chan -> (chan -> expr) -> act.
+out : chan -> chan -> expr -> act.
+
+print : chan -> expr.  (* for tracing *)
+
+proc : expr -> o.
+choice : sum -> o.
+
+(* unfair selection, outside monad *)
+select : sum -> act -> o.
+select (guard G) G.
+select (alt M1 M2) G
+ :- select M1 G.
+select (alt M1 M2) G
+ :- select M2 G.
+
+(* fair scheduling, inside monad *)
+proc zero -o {one}.
+proc (par P Q) -o {proc P, proc Q}.
+proc (new u \ P u) -o {sigma u \ proc (P u)}.
+proc (rep P) -o {!proc P}.
+proc (sync M) -o {choice M}.
+proc (print U), write U, nl -o {one}.  (* tracing *)
+
+choice M,
+select M (silent P)
+  -o {proc P}.
+
+choice M1,
+choice M2,
+select M1 (in U w \ P w),
+select M2 (out U V Q)
+ -o {proc (P V), proc Q}.

@@ -1,0 +1,779 @@
+% ------------------------------------------------------
+% ---  Commands for typesetting sequent calculi
+% ------------------------------------------------------
+
+\newcommand {\ignore}[1]{}
+
+% requires: proof.sty, amsmath.sty, amssymb.sty
+
+% Contents:
+%
+%  Commmon macros:
+%
+%      linear logic connectives
+%      sequent rule names: XXRuleName macros
+%      common hooks: andalso, srule, etc.
+%      theorem-like environments: Definition, Theorem, Lemma, ...
+%      typesetting proofs: Demo, Caso, Subcaso, ...
+%
+%  Proof systems:
+%
+%      RM3 system RMTxx macros
+%
+%      Frames system: Fxx macros
+%      Frames' system: FPxx macros
+%      Frames1 system: FOnexx macros
+%      Frames2 system: FTwoxx macros
+%      Frames3 system: FThrxx macros
+%
+%      Tag-Frame system: TFxx macros
+%
+%      CLF systems
+%
+%  In general, for each proof system the following macros are defined:
+%
+%     XXsystem - the name of the calculus
+%     XXarrow  - sequent arrow for XX
+%     XXyy     - symbol yy
+%     XXseq    - a sequent of the XX calculus
+%     XXRseq   - a right sequent
+%     XXLseq   - a left sequent
+
+% ------------------------------------------------------
+% --- linear logic connectives
+% ------------------------------------------------------
+
+% \top, \bot, and \oplus are used as such
+
+\newcommand{\one}       {\textbf{1}}
+\newcommand{\zero}      {\textbf{0}}
+\newcommand{\limp}      {\mathbin{-\hspace{-0.70mm}\circ}}
+\newcommand\rlimp       {\mathbin{\circ\hspace{-0.70mm}-}}
+\newcommand{\iimp}      {\supset}
+%\newcommand{\iimp}      {\Rightarrow}
+\newcommand{\riimp}     {\Leftarrow}
+\newcommand{\bang}      {\mathop{!}}
+\newcommand{\with}      {\mathbin{\&}}
+\newcommand{\tensor}    {\otimes}
+
+% ------------------------------------------------------
+% --- sequent rule names
+% ------------------------------------------------------
+
+% math mode assumed in XXRuleName macros
+
+% sequent rule name
+% (#1 = proof system, #2 = connective, #3= side {left, right, none})
+\newcommand {\RuleName} [3]
+%    {{#2}_{#1}}
+    {{#2}_{#1} \textrm{#3}}
+
+% right rule name
+% (#1 = proof system, #2 = connective)
+\newcommand {\RRuleName} [2]
+    {\RuleName {#1} {#2} {R}}
+
+% left rule name
+% (#1 = proof system, #2 = connective)
+\newcommand {\LRuleName} [2]
+    {\RuleName {#1} {#2} {L}}
+
+% decide rule name
+% (#1 = proof system, #2 = connective)
+\newcommand {\DRuleName} [2]
+    {\RuleName {#1} {{\textbf{decide\,}}{#2}} {}}
+
+% pick rule name
+% (#1 = proof system, #2 = connective)
+\newcommand {\PRuleName} [2]
+    {\RuleName {#1} {{\textbf{pick\,}}{#2}} {}}
+
+% rewrite judgement rule name
+% (#1 = proof system, #2 = connective)
+\newcommand {\JRuleName} [2]
+    {\RuleName {#1} {#2} {$\rewrt$}}
+
+% axiom rule name
+% (#1 = proof system, #2 = axiom name)
+\newcommand {\ARuleName} [2]
+    {\RuleName {#1} {\textbf{#2}} {}}
+
+% general rule name
+% (#1= proof system, #2= whatever)
+\newcommand {\GRuleName}[2]
+    {\RuleName {} {#2} {}}
+%    {\RuleName {#1} {#2} {}}
+
+% ------------------------------------------------------
+% --- common hooks
+% ------------------------------------------------------
+
+% proviso hook
+% (#1 = proviso)
+\newcommand {\proviso}[1] {\mbox{where }#1}
+
+% for connecting multiple premises and/or provisos
+\newcommand {\andalso} {\qquad}
+
+% rewriting symbol for the resolution judgements
+\newcommand {\rewrt}  {\gg}
+
+% ------------------------------------------------------
+% --- hooks for sequent rules
+% ------------------------------------------------------
+
+% we're now using the infer macro from proofs.sty
+
+% sequent rule
+% #1= hypothesis #2= conclusion
+\newcommand {\srule} [2]
+   {\infer {#2} {#1}}
+
+% named sequent rule
+% #1= hypothesis #2= conclusion #3= name (XXRuleName)
+\newcommand {\nsrule} [3]
+   {\infer[#3] {#2} {#1}}
+
+
+%% using Benjamin Pierce's bcprules.sty
+%
+%% sequent rule
+%% #1= hypothesis #2= conclusion
+%\newcommand {\srule} [2]
+%   {\infrule[] {#1} {#2}}
+%
+%% named sequent rule
+%% #1= hypothesis #2= conclusion #3= name (XXRuleName)
+%\newcommand {\nsrule} [3]
+%   {\infrule[#3] {#1} {#2}}
+
+
+% ------------------------------------------------------
+% --- theorem environments
+% ------------------------------------------------------
+
+% spanish
+%\newtheorem{Teorema}{Teorema}[section]
+%\newtheorem{Lema}{Lema}[section]
+%\newtheorem{Proposicion}{Proposici\'{o}n}[section]
+%\newtheorem{Corolario}{Corolario}[section]
+%\newtheorem{Definicion}{Definici\'{o}n}[section]
+
+% english
+\newtheorem{Teorema}{Theorem}[section]
+\newtheorem{Lema}{Lemma}[section]
+\newtheorem{Proposicion}{Proposition}[section]
+\newtheorem{Corolario}{Corollary}[section]
+\newtheorem{Definicion}{Definition}[section]
+
+
+% --------------------------------------
+% ---  For typesetting proofs
+% --------------------------------------
+
+%% in spanish
+%\newenvironment{Demo}
+%      {\noindent\textbf{Demostraci\'on:\ }}
+%      {\hfill $\square$ }
+%
+%% #1 = induction case (sequent rule, etc.)
+%\newenvironment{Caso} [1]
+%      {\noindent \textbf{Caso} #1}
+%      {}
+%
+%% #1 = induction subcase (sequent rule, etc.)
+%\newenvironment{Subcaso} [1]
+%      {\textbf{Subcaso} #1}
+%      {}
+
+% in english
+\newenvironment{Demo}
+      {\textbf{Proof:\ }}
+      {\hfill $\square$ }
+
+% #1 = induction case (sequent rule, etc.)
+\newenvironment{Caso} [1]
+      {\noindent \textbf{Case} #1}
+      {}
+
+% #1 = induction subcase (sequent rule, etc.)
+\newenvironment{Subcaso} [1]
+      {\textbf{Subcase} #1}
+      {}
+
+
+% #1= name of assumed proof  #2= root sequent
+\newcommand{\hypo}[2]
+  {\deduce {#2}
+           {#1}
+  }
+
+% --------------------------------------
+% ---  Proof Systems
+% --------------------------------------
+
+\newcommand {\IOsep} {\backslash}
+
+% --------------------------------------
+% ---  RM3 System
+% --------------------------------------
+
+% RM3 proof system name
+\newcommand {\RMTsystem} {RM_3}
+
+% ------ RM3 sequent symbols ------
+
+% RM3 sequent arrow symbol
+\newcommand {\RMTarrow} {\Longrightarrow}
+
+% RM3 input-output separator
+\newcommand {\RMTiosep} {\backslash}
+
+% RM syntax equality
+
+\newcommand {\syntaxeq} {\overset{\cdot}{=}}
+
+% ------ default RM3 sequent ------
+
+% #1= intuitionistic #2= strict  #3= lax   #4= output       #5= top flag   #6= goal
+
+\newcommand {\RMTseq} [6]
+    {#2 ; #3 \RMTiosep  #4 {\RMTarrow}_{#5}\: #6}
+
+\def\RMTGseq{\RMTseq{\Gamma}}
+
+% ------ residuation judgement ------
+
+% residuation calculus
+
+\newcommand {\Residsystem} {\cal{R}}
+
+% residuation rule name
+% (#1 = connective)
+\newcommand {\ResidRule} [1]
+    {\RuleName {} {\textbf{res-}#1} {}}
+
+% #1= clause  #2= atom #3= goal
+\newcommand {\resid} [3]
+    {#1 \rewrt #2 \backslash #3}
+
+% unique labelling of a multiset
+% #1= multiset
+\newcommand {\unitag} [1]
+    {#1^\star}
+
+% unlabelling a uniquely labelled set
+% #1= labelled set
+\newcommand {\unlabel} [1]
+    {[#1]}
+
+% ------------------------------------------------------
+% --- frame macros
+% ------------------------------------------------------
+
+% empty frame
+\newcommand {\emptyframe} {\mathrm{nil}}
+
+% frame constructor
+\newcommand {\frcons}     {::}
+
+% context constructor
+\newcommand {\ctxcons}[2]{\mathrel{{#1}::{#2}}}
+
+\newcommand{\emptyctx}{\mathrm{nil}}
+
+% insert a element in a frame
+\newcommand {\frins}      {\triangleleft}
+
+% to flatten a frame
+\newcommand {\frflat} [1] {\widehat{#1}}
+
+% inclusion of frames
+\newcommand {\frleq}      {\sqsubseteq}
+
+% union of frames
+\newcommand {\frplus}     {\sqcup}
+
+% frame difference
+\newcommand {\frdiff}     {-}
+
+% flattened frame difference
+\newcommand {\frflatdif}     {\frflat{\frdiff}}
+
+% --------------------------------------
+% ---  Frames System
+% --------------------------------------
+
+% Frames proof system name
+\newcommand {\Fsystem} {\cal{F}}
+
+% Frames proof system symbols
+
+\newcommand {\Farrow} {\Longrightarrow}
+\newcommand {\Fiosep} {\slash}
+
+% ------ F right sequent ------
+
+% #1= intuitionistic input #2= strict input  #3= optional input  #4= goal  #5= output  #6= top flag
+\newcommand  {\FRseq}  [6] {#1; #2; #3 \Farrow #4 \Fiosep #5; #6}
+
+% ------ F left sequent ------
+
+% #1= intuitionistic input #2= strict input  #3= optional input  #4= clause (focus) #5= atom  #6= output  #7= top flag
+\newcommand  {\FLseq}  [7] {#1; #2; #3 \Farrow #4 \rewrt #5 \Fiosep #6; #7}
+
+% --------------------------------------
+% ---  Frames' System
+% --------------------------------------
+
+% Frames' proof system name
+\newcommand {\Fpsystem} {\cal{F}'}
+
+% ------ default F' sequent ------
+
+% #1= strict input  #2= optional input  #3= goal  #4= output  #5= top flag
+\newcommand  {\Fpseq}  [5] {#1; #2 \Farrow #3 \Fiosep #4; #5}
+
+% ------------------------------------
+% --- First refinement of Frames
+% ------------------------------------
+
+% F1 proof system name
+\newcommand {\FOnesystem} {{\Fsystem}_{1}}
+
+% F1 right sequent
+% #1= strict input  #2= optional input  #3= goal  #4= output  #5= top flag
+\newcommand {\FOneRseq} [5] {#1; #2 \Farrow #3 \Fiosep #4; #5}
+
+% F1 left sequent
+% #1= strict input  #2= optional input  #3= clause (focus) #4= atom  #5= output  #6= top flag
+\newcommand {\FOneLseq} [6] {#1; #2 \Farrow #3 \rewrt #4 \Fiosep #5; #6}
+
+% ------------------------------------
+% --- Second refinement of Frames
+% ------------------------------------
+
+% F2 proof system name
+\newcommand {\FTwosystem} {{\Fsystem}_{2}}
+
+% F2 right sequent
+% #1= input program  #2= goal  #3= output #4= top flag
+\newcommand {\FTwoRseq} [4] {#1 \Farrow #2 \Fiosep #3; #4}
+
+% F2 left sequent
+% #1= input program  #2= clause #3= atom  #4= output #5= top flag
+\newcommand {\FTwoLseq} [5] {#1 \Farrow #2 \rewrt #3 \Fiosep #4; #5}
+
+% ------------------------------------
+% --- Third refinement of Frames
+% ------------------------------------
+
+% F3 proof system name
+\newcommand {\FThrsystem} {{\Fsystem}_{3}}
+
+% F3 right sequent
+% #1= input program  #2= goal  #3= output #4= top flag
+\newcommand {\FThrRseq} [4] {#1 \Farrow #2 \Fiosep #3; #4}
+
+% F3 left sequent
+% #1= input program  #2= clause #3= atom  #4= output #5= top flag
+\newcommand {\FThrLseq} [5] {#1 \Farrow #2 \rewrt #3 \Fiosep #4; #5}
+
+% --------------------------------------
+% ---  Tag-Frame System
+% --------------------------------------
+
+% TF proof system name
+\newcommand {\TFsystem} {\cal{TF}}
+
+% TF' proof system name
+\newcommand {\TFpsystem} {\cal{TF}'}
+
+% ------ TF sequent symbols ------
+
+% TF sequent arrow symbol
+\newcommand {\TFarrow} {\longrightarrow}
+\renewcommand {\TFarrow} {\xrightarrow}
+
+% TF input-output separator
+\newcommand {\TFiosep} {\diagdown}
+
+% TF tag standard signature
+\newcommand {\TFsig} {\Sigma}
+
+% universal set of tags
+\newcommand {\Tags} {\cal{T}}
+
+% disjoint union
+\newcommand {\udot} {\dot\cup}
+
+% selection of part of a context affected by given tags
+% #1 = sequence of tagged formulas  #2= set of tags
+\newcommand {\tagsel} [2]
+    {\left[#1\right]_{#2}}
+
+\newcommand {\tagself} [3]
+    {\left[#1\right]_{#2}^{#3}}
+
+\newcommand {\tagssel} [2]
+    {\left\llbracket{#1}\right\rrbracket_{#2}}
+
+%multiset
+\newcommand{\multi}[1]{\{ {#1} \}}
+\def\mand{\mbox{ and }}
+\def\mor{\mbox{ or }}
+
+% tags appearing in a context
+\newcommand {\tagsof} [1]
+    {\left\langle #1 \right\rangle}
+
+% ------ default TF sequent ------
+
+% #1 = signature #2= input  #3= output   #4= frame       #5= consumption markers   #8= goal        INPUT
+%                         #6= ext. consumption markers  #7= top flag                               OUTPUT
+%\newcommand {\TFseq} [8]
+%    {#1: #2 \TFiosep  #3 \overset{#4 \quad #5}{\underset{#6 \quad #7} {\TFarrow}}  #8}
+\newcommand {\TFseq} [8]
+    {#1: #2 \TFiosep  #3 \TFarrow[#6 \quad #7]{#4 \quad #5}  #8}
+
+
+% TF sequent no signature (drops #1)
+% #1 = signature #2= input  #3= output   #4= frame       #5= consumption markers   #8= goal        INPUT
+%                         #6= ext. consumption markers  #7= top flag                               OUTPUT
+%\newcommand {\TFseqnosig} [8]
+%    {#2 \TFiosep  #3 \overset{#4 \quad #5}{\underset{#6 \quad #7} {\TFarrow}}  #8}
+\newcommand {\TFseqnosig} [8]
+    {#2 \TFiosep  #3 \TFarrow[#6 \quad #7]{#4 \quad #5} #8}
+
+% --------------------------------------
+% ---  Tag-Frame-Phi System
+% --------------------------------------
+
+% this is Tag-Frame modified to explicitly compute \phi; 
+% that is, the set of tags exported by \with rules
+
+% TFH' proof system name
+\newcommand {\TFHpsystem} {\mathcal{TF}'_\phi}
+
+% ------ default TFH sequent ------
+
+% #1 = signature #2= input  #3= output   #4= frame       #5= consumption markers   #9= goal        INPUT
+%              #6= ext. consumption markers  #7= tags exported by &  #8= top flag                  OUTPUT
+%\newcommand {\TFHseq} [9]
+%    {#1: #2 \TFiosep  #3 \overset{#4 \quad #5}{\underset{#6 \quad #7 \quad #8} {\TFarrow}}  #9}
+\newcommand {\TFHseq} [9]
+    {#1: #2 \TFiosep  #3 \TFarrow[#6 \quad #7 \quad #8] {#4 \quad #5}  #9}
+
+% --------------------------------------
+% ---  Tag-Frame-Beta System
+% --------------------------------------
+
+% TFH' proof system name
+\newcommand {\TFBpsystem} {\mathcal{TF}'_\beta}
+
+% ------ default TFB sequent ------
+
+% #1 = signature #2= input  #3= output   #4= frame       #5= consumption markers   #8= goal        INPUT
+%                             #6= tags exported by &  #7= top flag                                 OUTPUT
+%\newcommand {\TFBseq} [8]
+%    {#1: #2 \TFiosep  #3 \overset{#4 \quad #5}{\underset{#6 \quad #7} {\TFarrow}}  #8}
+
+\newcommand {\TFBseq} [8]
+    {#1: #2 \TFiosep  #3 \TFarrow[#6 \quad #7]{#4 \quad #5}  #8}
+
+\newcommand {\TFBGseq} [8]
+    {#1:\: #2 \TFiosep  #3 \TFarrow[#6 \quad #7]{#4 \quad #5}  #8}
+
+\newcommand {\TFBseqG} [9]
+    {#1:\: #2 ; #3 \TFiosep  #4 \TFarrow[#5 \quad #6]{#7 \quad #8}  #9}
+
+% --------------------------------------
+% ---  Tag-Frame-Plus System
+% --------------------------------------
+
+\newcommand {\TFPpsystem} {\mathcal{TF}+}
+
+\newcommand {\TFPseqq} [6]
+    {#1 \TFiosep  #2 {\TFarrow{#3 \quad #4}}_{#5}\:  #6}
+
+\newcommand{\TFPseq}[5]{#2 \TFiosep #4 \:;\: \TFPseqq}
+
+\newcommand{\TFPGseq}[4]{#1 \TFiosep #3 \:;\: \TFPseqq}
+
+\newcommand{\lookup}[5]{#1\TFiosep #2\models #4 \leadsto #5}
+\newcommand{\card}[1]{\bm{\#}(#1)}
+\newcommand{\val}[1]{#1}
+\newcommand{\alias}[1]{#1}
+
+\newcommand{\aliasof}[2]{\texttt{alias\_of}(#1,#2)}
+
+% --------------------------------------
+% ---  Tag-Frame-Fast System
+% --------------------------------------
+
+\newcommand {\TFapsystem} {\mathcal{TF}'_\beta}
+
+\newcommand {\TFPapsystem} {\mathcal{TF}\lightning}
+\newcommand {\TFPaseqq} [6]
+    {#1 \TFiosep  #2 {\TFarrow{#3 \quad #4}}_{#5}\: #6}
+
+\newcommand{\TFPaGseq}[4]{\Lambda ; #1 \TFiosep #3 \:;\: \TFPaseqq}
+\newcommand{\TFPaLseq}[5]{#1 ; #2 \TFiosep #4 \:;\: \TFPaseqq}
+
+\newcommand{\fst}[1]{\mathrm{fst}(#1)}
+\newcommand{\snd}[1]{\mathrm{snd}(#1)}
+
+\newcommand{\EWsystem}{\mathcal{TF}\merge}
+
+% ------ default TFa sequent ------
+
+% #1 = signature #2= input  #3= output   #4= frame       #5= consumption markers   #8= goal        INPUT
+%                             #6= tags exported by &  #7= top flag                                 OUTPUT
+%\newcommand {\TFaseq} [8]
+%    {#1: #2 \TFiosep  #3 \overset{#4 \quad #5}{\underset{#6 \quad #7} {\TFarrow}}  #8}
+
+\newcommand {\TFaseq} [7]
+    {#2 \TFiosep  #3 {\TFarrow{#4 \quad #5}}_{#6}\:  #7}
+
+\newcommand {\TFaGseq} [6]
+    {#1 \TFiosep  #2 {\TFarrow{#3 \quad #4}}_{#5}\:  #6}
+
+\newcommand{\maptag}[3]{\mathrel{\merge(#1,#2,#3)}}
+
+
+\newcommand {\TFFpsystem} {\mathcal{TF}\lightning}
+
+
+% --------------------------------------
+% --- CLF
+% --------------------------------------
+
+% a sequent calculus presentation of CLF
+% Note: proof-terms dropped
+
+\newcommand {\CLFsystem} {CLF}
+
+%--- expression checking (EC)
+
+\newcommand{\CLFECarrow}{\xleftarrow}
+
+% #1= intuitionistic context  #2= linear context  #3= sync type
+\newcommand{\CLFECseq}[3]
+      {#1 ; #2 \CLFECarrow{} #3}
+
+%--- normal object cheking (NC)
+
+\newcommand{\CLFNCarrow}{\xLeftarrow}
+
+% #1= intuitionistic context  #2= linear context  #3= type
+\newcommand{\CLFNCseq}[3]
+      {#1 ; #2 \CLFNCarrow{} #3}
+
+%--- monadic object cheking (MC)
+
+\newcommand{\CLFMCarrow}{\xLeftarrow}
+
+% #1= intuitionistic context  #2= linear context  #3= sync type
+\newcommand{\CLFMCseq}[3]
+      {#1 ; #2 \CLFMCarrow{} #3}
+
+%--- pattern expansion (PE)
+
+\newcommand{\CLFPEarrow}{\xleftarrow}
+
+% #1= intuitionistic context  #2= linear context  #3= patterns  #4= async type
+\newcommand{\CLFPEseq}[4]
+      {#1 ; #2 \, \vert \, #3 \CLFPEarrow{} #4}
+
+%--- atomic object inference (AI)
+
+\newcommand{\CLFAIarrow}{\xRightarrow}
+
+% #1= intuitionistic context  #2= linear context  #3= async type
+\newcommand{\CLFAIseq}[3]
+      {#1 ; #2 \CLFAIarrow{} #3}
+
+%--- forward chaining
+
+\newcommand{\CLFFCarrow}{\Downarrow}
+
+\newcommand{\commit}{\mathbf{commit}}
+
+% #1= intuitionistic context  #2= linear context  #3= async type #4= monadic type
+\newcommand{\CLFFCseq}[4]
+      {#1 ; #2 \, \vert \, #3 \CLFFCarrow  #4}
+
+
+% --------------------------------------
+% --- CLF IO_\top
+% --------------------------------------
+
+% an IO_\top presentation of CLF
+% Note: proof-terms dropped
+
+\newcommand {\CLFIOsystem} {CLF_{IO_{\top}}}
+
+%--- expression checking (EC)
+
+% #1= intuitionistic context #2= input #3= output #4= top flag  #5= sync type
+\newcommand{\CLFIOECseq}[5]
+      {#1 ; #2 \IOsep #3 \CLFECarrow[#4]{} #5}
+
+%--- normal object cheking (NC)
+
+% #1= intuitionistic context #2= input #3= output #4= top flag  #5= type
+\newcommand{\CLFIONCseq}[5]
+      {#1 ; #2 \IOsep #3 \CLFNCarrow[#4]{} #5}
+
+%--- monadic object cheking (MC)
+
+% #1= intuitionistic context #2= input #3= output #4= top flag  #5= sync type
+\newcommand{\CLFIOMCseq}[5]
+      {#1 ; #2 \IOsep #3 \CLFMCarrow[#4]{} #5}
+
+%--- pattern expansion (PE)
+
+% #1= intuitionistic context #2= input #3= output  #4= patterns #5= top flag #6= async type
+\newcommand{\CLFIOPEseq}[6]
+      {#1 ; #2 \IOsep #3 \, \vert \, #4 \CLFPEarrow[#5]{} #6}
+
+%--- atomic object inference (AI)
+
+% #1= intuitionistic context #2= input #3= output #4= top flag  #5= async type
+\newcommand{\CLFIOAIseq}[5]
+      {#1 ; #2 \IOsep #3 \CLFAIarrow[#4]{} #5}
+
+%--- forward chaining
+
+% #1= intuitionistic context  #2= input #3= output  #4= async type #5= top flag   #6= monadic type
+\newcommand{\CLFIOFCseq}[6]
+      {#1 ; #2 \IOsep #3 \, \vert \, #4 \CLFFCarrow_{#5}  #6}
+
+
+% --------------------------------------
+% --- CLF Frames
+% --------------------------------------
+
+% a Frames presentation of CLF
+% Note: proof-terms dropped
+
+\newcommand {\CLFFRsystem} {CLF_{\mathcal{F}}}
+
+%--- expression checking (EC)
+
+% #1= intuitionistic context #2= strict #3= input #4= output #5= top flag  #6= sync type
+\newcommand{\CLFFRECseq}[6]
+      {#1 ; #2 ; #3 \IOsep #4 \CLFECarrow[#5]{} #6}
+
+%--- normal object cheking (NC)
+
+% #1= intuitionistic context #2= strict #3= input #4= output #5= top flag  #6= type
+\newcommand{\CLFFRNCseq}[6]
+      {#1 ; #2 ; #3 \IOsep #4 \CLFNCarrow[#5]{} #6}
+
+%--- monadic object cheking (MC)
+
+% #1= intuitionistic context #2= stritc #3= input #4= output #5= top flag  #6= sync type
+\newcommand{\CLFFRMCseq}[6]
+      {#1 ; #2 ; #3 \IOsep #4 \CLFMCarrow[#5]{} #6}
+
+%--- atomic object inference (AI)
+
+% #1= intuitionistic context #2= strict #3= input #4= output #5= top flag  #6= async type
+\newcommand{\CLFFRAIseq}[6]
+      {#1 ; #2 ; #3 \IOsep #4 \CLFAIarrow[#5]{} #6}
+
+%--- pattern expansion (PE)
+
+% #1= intuitionistic context #2= strict #3= input #4= output  #5= patterns #6= top flag #7= async type
+\newcommand{\CLFFRPEseq}[7]
+      {#1 ; #2 ; #3 \IOsep #4 \, \vert \, #5 \CLFPEarrow[#6]{} #7}
+
+
+%--- forward chaining
+
+% #1= intuitionistic context  #2= strict #3= input #4= output  #5= async type #6= top flag   #7= monadic type
+\newcommand{\CLFFRFCseq}[7]
+      {#1 ; #2 ; #3 \IOsep #4 \, \vert \, #5 \CLFFCarrow_{#6}  #7}
+
+
+% --------------------------------------
+% ---  CLF Tag-Frame-Fast
+% --------------------------------------
+
+% a Tag-Frame-Fast presentation of CLF
+% Note: proof-terms and intuitionistic context dropped
+
+\newcommand {\CLFTFsystem} {CLF_{TF}}
+
+%--- expression checking (EC)
+
+%  #1=Stack id  #2=Alias in   #3=Alias out   #4=Input  #5=Output
+%  #6= strict tag   #7=delete tag  #8=top flag #9= goal
+\newcommand {\CLFTFECseq}[9]
+    {#1; \; #2 \TFiosep #3; \; #4 \TFiosep #5  {\CLFECarrow[#8]{#6 \quad #7}}  #9}
+
+%--- normal object cheking (NC)
+
+%  #1=Stack id  #2=Alias in   #3=Alias out   #4=Input  #5=Output
+%  #6= strict tag   #7=delete tag  #8=top flag #9= goal
+\newcommand {\CLFTFNCseq}[9]
+    {#1; \; #2 \TFiosep #3; \; #4 \TFiosep #5  {\CLFNCarrow[#8]{#6 \quad #7}} #9}
+
+%--- monadic object cheking (MC)
+
+%  #1=Stack id  #2=Alias in   #3=Alias out   #4=Input  #5=Output
+%  #6= strict tag   #7=delete tag  #8=top flag #9= goal
+\newcommand {\CLFTFMCseq}[9]
+    {#1; \; #2 \TFiosep #3; \; #4 \TFiosep #5  {\CLFMCarrow[#8]{#6 \quad #7}} #9}
+
+%--- pattern expansion (PE)
+
+% 10 arguments, must split
+
+% this is to write the rest of parameters
+\newcommand {\CLFTFPErest} [1] {#1}
+
+%  #1=Stack id  #2=Alias in   #3=Alias out   #4=Input  #5=Output  #6= Patterns
+%  #7= strict tag   #8=delete tag  #9=top flag #10= goal
+\newcommand {\CLFTFPEseq}[9]
+    {#1; \; #2 \TFiosep #3; \; #4 \TFiosep #5 \; \vert #6  {\CLFPEarrow[#9]{#7 \quad #8}} \CLFTFPErest}
+
+
+% --------------------------------------
+% ---  Extra stuff (mostly Jeff's)
+% --------------------------------------
+
+
+\def\emptypf{\emptyset}
+\def\bnfas{\mathrel{::=}}
+\def\bnfalt{\mid}
+\def\S{\sigma}
+\def\St{\Sigma}
+\def\D{\Delta}
+\def\L{\alpha}
+\def\tt{\mathrm{t}\!\mathrm{t}}
+\def\ff{\mathrm{f}\!\mathrm{f}}
+
+\def\none{\blacklozenge}
+
+\newcommand{\dom}[1]{\mathrm{dom}(#1)}
+\newcommand{\cod}[1]{\mathrm{cod}(#1)}
+
+\newcommand{\hs}[1]{\hspace*{#1em}}
+
+\newcommand {\rsq}[4]{#2 \gg #3 \TFiosep #4}
+
+
+\def\above#1#2{\begin{array}[b]{c}\relax #1\\ \relax #2\end{array}}
+\def\derI{\mathcal{D}_1}
+\def\derII{\mathcal{D}_2}
+
+\newcommand{\IOTseq}[4]{#1\TFiosep #2\:\Longrightarrow_{#3}\: #4}
+\newcommand{\Fseq}[5]{#1;#2\TFiosep #3 \longrightarrow_{#4} \: #5 }
+
+
+%%% Local Variables: 
+%%% mode: plain-tex
+%%% TeX-master: "E:\\lolli_clf\\opsem"
+%%% End: 

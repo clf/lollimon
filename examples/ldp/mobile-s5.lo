@@ -1,0 +1,186 @@
+(*
+   Judgmental S5
+   Author: Frank Pfenning
+   Following LICS'04 paper
+   Adapted from Twelf code
+*)
+world : type.
+tp : type.
+tm : type.
+
+of : tm -> tp -> world -> o.
+
+(* functions *)
+arrow : tp -> tp -> tp.
+lam : (tm -> tm) -> tm.
+app : tm -> tm -> tm.
+
+of (lam x \ M x) (arrow A B) W
+  o- (pi x \ of x A W => of (E x) B W).
+of (app M1 M2) B W
+  o- of M1 (arrow A B) W,
+     of M2 A W.
+
+(* necessity *)
+box : tp -> tp.
+boxi : (world -> tm) -> tm.
+unbox : tm -> tm.
+fetch : world -> tm -> tm.
+
+of (boxi u \ M u) (box A) W
+  o- (pi u \ of (M u) A u).
+of (unbox M) A W
+  o- of M (box A) W.
+of (fetch W' M ) (box A) W
+  o- of M (box A) W'.
+
+(* possibility *)
+dia : tp -> tp.
+
+here : tm -> tm.
+letd : tm -> (world -> tm -> tm) -> tm.
+get : world -> tm -> tm.
+
+of (here M) (dia A) W
+  o- of M A W.
+of (letd M1 (u \ x \ M2 u x)) C W
+  o- of M1 (dia A) W,
+     (pi u \ pi x \ of x A u => of (M2 u x) C W).
+of (get W' M) (dia A) W
+  o- of M (dia A) W'.
+
+(*
+   small-step semantics
+*)
+
+(* destinations, values, frames *)
+dest : type.
+vl : type.
+fm : type.
+
+(* operational predicates *)
+eval : world -> tm -> dest -> o.
+comp : world -> fm -> dest -> o.
+return : world -> vl -> dest -> o.
+
+(* values *)
+value : vl -> tm.
+eval W (value V) D
+  -o {return W V D}.
+
+(* functions *)
+vlam : (tm -> tm) -> vl.
+app1 : dest -> tm -> fm.
+app2 : vl -> dest -> fm.
+
+eval W (lam x \ M x) D
+  -o {return W (vlam x \ M x) D}.
+
+(* app-push *)
+eval W (app M1 M2) D
+  -o {sigma d1 \
+        eval W M1 d1,
+        comp W (app1 d1 M2) D}.
+
+(* app-flip *)
+return W V1 D1,
+comp W (app1 D1 M2) D
+  -o {sigma d2 \ 
+        eval W M2 d2,
+        comp W (app2 V1 d2) D}.
+
+(* app-reduce *)
+return W V2 D2,
+comp W (app2 (vlam x \ M1' x) D2) D
+  -o {eval W (M1' (value V2)) D}.
+
+(* necessity *)
+vboxi : (world -> tm) -> vl.
+unbox1 : dest -> fm.
+fetch1 : world -> dest -> fm.
+
+eval W (boxi u \ M u) D
+  -o {return W (vboxi u \ M u) D}.
+
+(* unbox-push *)
+eval W (unbox M1) D
+  -o {sigma d1 \
+         eval W M1 d1,
+         comp W (unbox1 d1) D}.
+
+(* unbox-reduce *)
+return W (vboxi u \ M1' u) D1,
+comp W (unbox1 D1) D
+  -o {eval W (M1' W) D}.
+
+(* fetch-push *)
+eval W (fetch W' M') D
+  -o {sigma d' \ 
+        eval W' M' d',
+        comp W (fetch1 W' d') D}.
+
+(* return (fetch) *)
+return W' V' D',
+comp W (fetch1 W' D') D
+  -o {return W V' D}.
+
+(* possibility *)
+bind : world -> vl -> dest -> o. (* could re-use return *)
+remote : world -> dest -> vl.   (* reference to remote value *)
+local : dest -> tm.		(* reference to local value *)
+
+here1 : dest -> fm.
+get1 : world -> dest -> fm.
+letd1 : dest -> (world -> tm -> tm) -> fm.
+
+(* here-push *)
+eval W (here M1) D
+  -o {sigma d1 \ 
+        eval W M1 d1,
+        comp W (here1 d1) D}.
+
+(* here-reduce *)
+return W V1 D1,
+comp W (here1 D1) D,
+write (!bind W V1 D1), nl	(* print binding, to interpret answer *)
+  -o {!bind W V1 D1,		(* add to table, persistent *)
+      return W (remote W D1) D}.
+
+(* get-push *)
+eval W (get W' M') D
+  -o {sigma d' \ 
+        eval W' M' d',
+        comp W (get1 W' d') D}.
+
+(* return (get) *)
+return W' V' D',
+comp W (get1 W' D') D
+  -o {return W V' D}.
+
+(* letd-push *)
+eval W (letd M1 (u \ x \ M2 u x)) D
+  -o {sigma d1 \ 
+        eval W M1 d1,
+        comp W (letd1 d1 (u \ x \ M2 u x)) D}.
+
+(* letd-reduce *)
+return W (remote W' D') D1,
+comp W (letd1 D1 (u \ x \ M2 u x)) D
+  -o {eval W (M2 W' (local D')) D}.
+
+(* lookup *)
+eval W (local D') D,
+!bind W V D'
+  -o {return W V D}.
+
+(* simulation *)
+evaluate : tm -> o.
+evaluate M
+  o- (pi w \ pi d \ eval w M d -o {return w V d, write V, nl}).
+
+(* examples
+evaluate (app (lam x \ x) (boxi u \ (lam y \ y))).
+evaluate (unbox (boxi u \ lam y \ y)).
+evaluate (letd (here (lam x \ x)) (u \ y \ y)).
+
+*)

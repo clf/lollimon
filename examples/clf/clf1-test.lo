@@ -1,0 +1,23 @@
+(* #include clf1-test.lo *)
+
+(* Regression testing queries *)
+#query 1 2 1 pi p \ true (lolli (atm p) (atm p)).
+#query 1 2 1 pi p \ pi q \ true (lolli (with (atm p) (atm q)) (atm p)).
+#query 1 2 1 pi p \ pi q \ true (lolli (with (atm p) (atm q)) (atm q)).
+#query 0 2 1 pi p \ pi q \ pi r \ true (lolli (with (atm p) (atm q)) (atm r)).
+
+#query 1 2 5 pi p \ true (lolli (atm p) (monad (atm p))).
+#query 1 2 1 pi p \ true (implies (atm p) (atm p)).
+#query 1 2 1 pi p \ pi q \ true (implies (atm p) (implies (atm q) (atm p))).
+#query 0 2 1 pi p \ pi q \ true (lolli (atm p) (lolli (atm q) (atm p))).
+
+#query 1 2 5
+pi p \ pi q \ 
+true (lolli (lolli (atm p) (monad (atm q)))
+       (lolli (atm p) (monad (atm q)))).
+
+#query 1 2 1
+pi p \ pi q \
+true (implies (lolli (atm p) (monad zerop))
+              (lolli (atm p) (monad (atm q)))).
+

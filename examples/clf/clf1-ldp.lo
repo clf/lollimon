@@ -1,0 +1,81 @@
+(*
+   Transcription of a tiny fragment of the ldp.lo
+   example to the meta-interpreter
+
+   This requires unification which is resistant
+   to non-patterns for the "app2" rule.
+*)
+
+#include "clf1.lo".
+
+(* same types as in ldp.lo, except type atom replaces o *)
+exp : type.
+dest : type.
+frame : type.
+eval : exp -> dest -> atom.
+return : exp -> dest -> atom.
+comp : frame -> dest -> atom.
+
+evaluate : exp -> atom.
+
+lam : (exp -> exp) -> exp.
+app : exp -> exp -> exp.
+app1 : dest -> exp -> frame.
+app2 : exp -> dest -> frame.
+
+(* to print the final answer *)
+writes : exp -> prop.
+true (writes E)
+  o- write E, nl.
+
+(*
+eval (lam x \ E x) D
+  -o {return (lam x \ E x) D}.
+*)
+hyp (forall E \ forall D \
+       lolli (atm (eval (lam x \ E x) D))
+         (monad (atm (return (lam x \ E x) D)))).
+
+(*
+eval (app E1 E2) D
+  -o {sigma d1 \ eval E1 d1, comp (app1 d1 E2) D}.
+*)
+hyp (forall E1 \ forall E2 \ forall D \
+        lolli (atm (eval (app E1 E2) D))
+	  (monad (exists d1 \ tensor (atm (eval E1 d1))
+	                         (atm (comp (app1 d1 E2) D))))).
+
+(*
+return V1 D1,
+comp (app1 D1 E2) D
+  -o {sigma d2 \ eval E2 d2, comp (app2 V1 d2) D}.
+*)
+hyp (forall V1 \ forall D1 \ forall E2 \ forall D \
+        lolli (tensor (atm (return V1 D1)) (atm (comp (app1 D1 E2) D)))
+	  (monad (exists d2 \ tensor (atm (eval E2 d2))
+	                        (atm (comp (app2 V1 d2) D))))).
+
+(*
+return V2 D2,
+comp (app2 (lam x \ E1' x) D2) D
+  -o {eval (E1' V2) D}.
+*)
+hyp (forall V2 \ forall D2 \ forall E1' \ forall D \
+       lolli (tensor (atm (return V2 D2))
+                (atm (comp (app2 (lam x \ E1' x) D2) D)))
+         (monad (atm (eval (E1' V2) D)))).
+
+(*
+terminates E o- (pi d \ eval E d -o {sigma V \ return V d}).
+*)
+hyp (forall E \ lolli (forall d \ lolli (atm (eval E d))
+                                (monad (exists V \ (tensor (atm (return V d))
+				                      (writes V)))))
+              (atm (evaluate E))).
+
+#query 1 2 1
+true (atm (evaluate (lam x \ x))).
+
+#query 1 2 1
+true (atm (evaluate (app (lam y \ y) (lam x \ x)))).
+

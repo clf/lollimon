@@ -1,0 +1,38 @@
+(*
+   Dijkstra's Game of the urn
+   Author: Pablo Lopez
+
+*)
+
+color : type.
+
+black : color.
+white : color.
+
+ball: color -> o.
+done: color -> o.
+
+
+ball C,
+ball C
+  -o {ball black}.
+
+ball white,
+ball black
+  -o {ball white}.
+
+(*** this is not right ***
+ball C
+  -o {done C}.
+*)
+
+ball C
+  -o done C.
+
+(*
+    example:
+
+     ball black -o ball white -o ball black -o ball white -o {done C}.
+
+*)
+

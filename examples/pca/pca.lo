@@ -1,0 +1,158 @@
+(*
+   PCA sample architecture specification
+   Author: Frank Pfenning
+
+   Not to be taken seriously
+   Added types for better error checking
+   All strings are for tracing only; messages are sent
+*)
+(* general setup *)
+princ : type.			(* principals *)
+prop : type.			(* propositions *)
+judg : type.			(* judgments *)
+says : princ -> prop -> judg.   (* says P A *)
+prf : type.			(* proofs of judgments *)
+derive : judg -> prf -> o.      (* derive J D -- D is proof of J *)
+
+sid : type.			(* session identifiers *)
+msg : type.			(* messages *)
+send : princ -> princ -> msg -> sid -> o. (* send From To Msg Sid *)
+broadcast : princ -> msg -> o.	(* broadcast From Msg *)
+listen : princ -> o.		(* listen P *)
+
+evmsg : type.			(* event messages *)
+event : princ -> string -> evmsg. (* events to be traced *)
+
+(* sample principles and propositions *)
+office : princ -> princ -> prop.
+student : princ -> princ -> prop.
+open : princ -> princ -> prop.
+
+mike : princ.
+d208 : princ.
+jon : princ.
+eve : princ.
+dept_head : princ.
+registrar : princ.
+
+(* facts and rules *)
+ax1 : prf.
+derive (says dept_head (office mike d208)) ax1.
+
+ax2 : prf.
+derive (says registrar (student jon mike)) ax2.
+
+r3 : prf -> prf -> prf.
+derive (says mike (open S O)) (r3 D1 D2) :-
+  derive (says dept_head (office mike O)) D1,
+  derive (says registrar (student S mike)) D2.
+
+r4 : prf -> prf.
+derive (says mike (open mike O)) (r4 D) :-
+  derive (says dept_head (office mike O)) D.
+
+(* algorithms for proving and checking *)
+run_prover : judg -> prf -> o.
+check_proof : judg -> prf -> o.
+
+run_prover J D :- derive J D.
+check_proof J D :- derive J D.
+
+(* prover thread *)
+(* no explicit message passing *)
+tid : type.			(* prover task identifier *)
+prove : judg -> tid -> o.	(* prove J Tid -- task to prove J *)
+found_proof : prf -> tid -> o.	(* found_proof D Tid -- found D *)
+
+prove J Tid,
+run_prover J D,
+write "ran prover", nl
+ -o {found_proof D Tid}.
+
+(* door *)
+(* messages *)
+door : msg.
+hello : msg.
+challenge : judg -> msg.	(* challenge J -- challenge msg to prove J *)
+proof : judg -> prf -> msg.	(* proof J D -- reply msg with proof D *)
+accept : msg.			(* accept -- msg that proof was accepted *)
+
+(* states *)
+receive_proof : princ -> princ -> judg -> sid -> o.
+
+(* broadcast continuously available (= server) *)
+broadcast d208 door.
+
+(* transitions *)
+send P d208 hello Sid,
+write (event d208 "received hello"), nl
+ -o {send d208 P (challenge (says mike (open P d208))) Sid,
+     receive_proof d208 P (says mike (open P d208)) Sid}.
+
+receive_proof d208 P J Sid,
+send P d208 (proof J D) Sid,
+write (event d208 "received proof"), nl,
+check_proof J D,
+write (event d208 "checked proof"), nl
+-o {send d208 P accept Sid}.
+
+(* jon *)
+(* parameterized over names, but only jon is presently known *)
+(* no new messages *)
+(* states *)
+receive_challenge : princ -> princ -> sid -> o.
+send_proof : princ -> princ -> judg -> tid -> sid -> o.
+finish_session : princ -> sid -> o.
+done : o.
+
+(* transitions *)
+listen P,
+broadcast Q door,
+write (event P "found door"), nl
+ -o {sigma sid \
+       send P Q hello sid,
+       receive_challenge P Q sid}.
+
+receive_challenge P Q Sid,
+send Q P (challenge J) Sid,
+write (event P "received challenge"), nl
+ -o {sigma tid \
+       prove J tid,
+       send_proof P Q J tid Sid}.
+
+send_proof P Q J Tid Sid,
+found_proof D Tid,
+write (event P "created proof"), nl
+ -o {send P Q (proof J D) Sid,
+     finish_session P Sid}.
+
+finish_session P Sid,
+send Q P accept Sid,
+write (event P "finished"), nl
+ -o {done}.
+
+(* simulation *)
+simulate : o.
+simulate o- (listen jon -o {done}).
+
+simulate2 : o.
+simulate2 o- (listen jon -o listen jon -o {done, done}).
+
+simulate2consec : o.
+simulate2consec o- (listen jon -o {done}), (listen jon -o {done}).
+
+simulate3 : o.
+simulate3 o- (listen jon -o listen mike -o {done, done}).
+
+simulate4 : o.
+simulate4 o- (listen jon -o listen eve -o {done, done}). (* should fail *)
+
+(* Examples
+
+run_prover (says mike (open jon d208)) D.
+check_proof (says mike (open jon d208)) (r3 ax1 ax2).
+
+simulate.
+simulate2.
+simulate3.
+*)

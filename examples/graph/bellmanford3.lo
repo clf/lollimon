@@ -1,0 +1,63 @@
+(*
+   Bellman-Ford algorithm for single source shortest path
+
+   Author: Frank Pfenning
+
+   This version works by saturation instead of counting.
+   Unlike bellmanford[2].lo it assumes there are no cycles with negative
+   weight instead of checking for such cycles.  This will loop on
+   negative weight cycles.
+*)
+
+node : type.
+vertex : node -> o.
+edge : node -> int -> node -> o.
+
+dist : node -> int -> o.
+
+!edge U C V,
+dist U Du,
+dist V Dv,
+Dv' is Du + C,
+Dv > Dv'
+-o {dist U Du,
+    dist V Dv'}.
+
+!edge U C V,
+dist U Du,
+vertex V,  (* not (yet) reached *)
+Dv is Du + C
+-o {dist U Du,
+    dist V Dv}.
+
+print : o.
+
+print,
+dist U Du, write (dist U Du), nl
+-o {print}.
+
+print,
+vertex V, write (vertex V), nl
+-o {print}.
+
+init : node -> o.
+init V0 o- vertex V0, (dist V0 0 -o {print -o {print}}).
+
+(* Nodes for example *)
+a : node.
+b : node.
+c : node.
+d : node.
+e : node.
+
+(* Example *)
+(*
+vertex a -o vertex b -o vertex c -o vertex d -o vertex e -o
+edge a 1 b =>
+edge a 3 c =>
+edge b 1 c =>
+edge b 4 c =>
+edge c 2 d =>
+edge e 1 d =>
+init a.
+*)

@@ -1,0 +1,1903 @@
+\documentclass{sig-alt}
+
+\usepackage{proof}
+\usepackage{palatino}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{array}
+\usepackage{stmaryrd}
+\usepackage{bm}
+\usepackage{anysize}
+\include{imacros}
+\newcommand{\piIn}[2]{\overline{#1}\langle #2 \rangle} 
+\def\ppar{\mathbin{|}}
+\def\lra{\longrightarrow}
+
+% Fix dependence on mathtools --kw
+%\usepackage{mathtools}
+\let\xleftarrow\leftarrow
+\let\xrightarrow\rightarrow
+\let\xLeftarrow\Leftarrow
+\let\xRightarrow\Rightarrow
+
+% Fix hyphenation problems --kw
+\emergencystretch1.5em
+
+% Show page numbers
+\def\thepage{\arabic{page}}
+\advance\voffset by -0.5in
+
+% Comment out long spans of text
+\long\def\junkstartshere#1\junkendshere{}
+
+% British spelling gotchas:
+%   judgement -> judgment
+%   arguement -> argument
+%   focussing -> focusing
+%   focussed -> focused
+%   modelling -> modeling
+%   modelled -> modeled
+%     (but note
+%        occurred, occurring,
+%        discussed, discussing,
+%        compelled, compelling
+%      in both British and American
+%      -- stress on 2nd syllable doubles consonant in American)
+
+\title{Monadic Concurrent Linear Logic Programming}
+
+\numberofauthors{4}
+
+\author{ 
+\alignauthor Pablo L\'{o}pez \\
+\affaddr{Universidad de M\'{a}laga} % \\
+\email{\affaddr lopez@lcc.uma.es}
+\alignauthor Frank Pfenning \\
+% \affaddr \hbox{Computer Science Department} %\\
+\affaddr Carnegie Mellon University %\\
+\email{\affaddr fp@cs.cmu.edu}
+\alignauthor Jeff Polakow \\
+\affaddr{AIST, CVS, JST}
+\titlenote{
+National Institute of Advanced Industrial Science and Technology (AIST),
+Research Center for Verification and Semantics (CVS),
+CREST, Japan Science and Technology Agency (JST)
+\newline
+\newline
+This research has been supported by the Office of Naval Research (ONR)
+under grant MURI N00014-04-1-0724: Distributed System Security via
+Logical Frameworks.
+}\\[1.25ex]
+\email{\affaddr j-polakow@aist.go.jp}
+\alignauthor Kevin Watkins \\
+% \affaddr \hbox{Computer Science Department} %\\
+\affaddr Carnegie Mellon University %\\
+\email{\affaddr kw@cs.cmu.edu}
+}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Lolli is a logic programming language based on the asynchronous
+propositions of intuitionistic linear logic.  It uses a backward
+chaining, backtracking operational semantics.  In this paper we extend
+Lolli with the remaining connectives of intuitionistic linear logic
+restric\-ted to occur inside a monad, an idea taken from the concurrent
+logical framework (CLF).  The resulting language, called LolliMon, has a
+natural forward chaining, committed choice operational semantics inside
+the monad, while retaining Lolli's semantics outside the monad.
+LolliMon thereby cleanly integrates both concurrency and saturation with
+logic programming search.  We illustrate its expressive power through
+several examples including an implementation of the pi-calculus, a
+call-by-need lambda-calculus, and several saturating algorithms presented
+in logical form.
+\end{abstract}
+
+
+\section{Introduction}
+\label{sec:intro}
+
+Combining computational paradigms, such as functional, logic,
+imperative, concurrent, constraint, or ob\-ject-oriented programming, in
+a clean, uniform, and effective way is generally quite difficult
+because of the deep philosophical, theoretical, and pragmatic
+differences that divide them.  Nevertheless, there have been many
+attempts to do so.  One reason is that many algorithms and
+computational patterns that can be expressed naturally in one paradigm
+may be quite cumbersome in others.  By combining paradigms we can hope
+to get the best of both worlds.  An additional reason is that
+applications demand increasingly richer programming concepts.  In
+particular, concurrent and distributed programming are becoming more
+prevalent, and therefore corresponding facilities are available in
+modern languages, many of which were not originally conceived with
+concurrency in mind.  This is reflected in the difficulties we have in
+reasoning about programs written in these languages, especially when
+they employ concurrency using low-level primitives.
+
+In this paper we advance the thesis that \emph{logic} can be a
+powerful unifying force in the design of multi-paradigm languages.
+More concretely, we extend back\-ward-chaining logic programming with
+\emph{concurrency} and \emph{saturation}, employing logical concepts
+such as lax truth and linearity in novel ways to obtain an elegant,
+minimalistic, yet general account of these computational phenomena.
+
+One starting point for our design is the linear logic programming
+language Lolli~\cite{Hodas94ic}.  It is based on a fragment of
+intuitionistic linear logic~\cite{Girard87tcs} endowed with an
+operational semantics in the form of backward-chaining search.  It forms
+an \emph{abstract logic programming language}~\cite{Miller91apal} and
+therefore permits a natural interpretation of the logical connectives as
+goal-directed search instructions.  In Andreoli's
+terminology~\cite{Andreoli92} we say that Lolli is based on the
+\emph{asynchronous connectives} of linear logic.  Lolli programs use
+linear assumptions to encode state and thereby capture some
+aspects of imperative computation in a logical manner.
+
+The second starting point is the concurrent logical framework
+CLF~\cite{Cervesato02tr,Watkins02tr,Watkins04types}.  The aspect of
+CLF most relevant to this paper is that it extends the asynchronous
+fragment of intuitionistic linear logic with syn\-chro\-nous
+connectives, but restricts them to occur inside a
+\emph{monad}~\cite{Moggi91}.  From a logical perspective, this monad
+is a modal operator satisfying the laws of lax
+logic~\cite{Fairtlough97ic} in its judgmental
+formulation~\cite{Pfenning01mscs}.
+The present paper introduces a computational perspective:
+the monad represents a dividing line between
+the backward-chaining, backtracking semantics with asynchronous
+connectives outside the monad, and forward-chaining, committed choice
+semantics with synchronous connectives inside the monad.
+
+The monadic encapsulation prevents undesirable interference between
+the two forms of computation and permits their harmonious
+co-existence.  As we will see, the two forms of computation are
+closely coupled and mutually dependent, yet predictable and clear\-ly
+identifiable without destroying the useful properties of their
+components.  It seems difficult if not impossible to achieve this
+without the use of a monad.  Monads have been employed for similar
+reasons in the context of functional programming~\cite{Wadler92popl}.
+In logic programming, their only use we are aware of is for
+higher-order programming with data structures~\cite{Bekkers95ilps,McGrail97},
+which is quite different from our application.
+
+There have been many other studies of concurrent logic programming (see,
+for example, an early survey \cite{Shapiro89}), and concurrent logic
+programming in fragments of linear logic (for example, LO~\cite{Andreoli90oopsla} and
+ACL~\cite{Kobayashi94tr}), but we are not aware of
+any that combine several forms of search in the same orthogonal way.
+Perhaps most closely related is Forum~\cite{Miller96tcs}, which is based on
+classical linear logic, but to the authors' knowledge its operational
+semantics and the interaction between concurrent and sequential
+computation in Forum has never been fully clarified.  Another notable
+attempt combining backward and forward chaining by Harland et
+al.\ \cite{Harland00pstt} is an interesting foundational study of proof
+search, but it is not clear whether it can be realized in a practical
+logic programming language.
+
+Our proposal has been implemented as a concrete language we call
+\emph{LolliMon}.  We have programmed numerous running examples,
+several of which are given in this paper.  From these examples one can
+extract certain basic programming techniques, although we do not yet
+claim to have full understanding of the programming methodology or
+implementation challenges posed by our language.
+
+One aspect that seems to be emerging is a close relationship between
+concurrent and saturating computation.  The latter has been popular
+for some time in the treatment of constraints (see, for example,
+CHR~\cite{Fruehwirth98jlp}) and recently in the logical specification
+and complexity analysis of several
+algorithms~\cite{Ganzinger01ijcar,Mcallester02jacm}.  Most recently,
+the deletion of facts has been introduced into the logical algorithm
+framework. This appears to be modeled well by the consumption of
+linear assumptions in LolliMon.
+
+The remainder of the paper is structured as follows.
+Section~\ref{sec:logical-rules} introduces the syntax, judgments, and
+  rules of the logic on which LolliMon is based.
+Section~\ref{sec:opsem} describes the operational semantics of LolliMon.
+Section~\ref{sec:examples} presents several examples of LolliMon logic
+  programs.
+Section~\ref{sec:conclusion} summarizes and sketches future work.
+
+\section{Logical Rules}
+\label{sec:logical-rules}
+
+In this section
+ we describe the basic syntactic structure of LolliMon,
+the logical rules on which its proof search strategy is based, and the
+basic aspects of the operational semantics that controls the application of
+the rules during proof search. Section~\ref{sec:opsem} treats the design
+of the operational semantics and the interesting phenomena that arise
+in modeling concurrency and saturation more completely.
+
+\subsection{Syntax}
+The formula language of LolliMon consists of \emph{asynchronous}
+connectives~$A$, which it shares with the earlier logic programming
+language Lolli, and \emph{synchronous} connectives~$S$, which were not
+a part of Lolli's formula language.  The distinction between
+synchronous and asynchronous connectives is fundamental; as we will
+see, the proof rules for asynchronous connectives have a natural logic
+programming interpretation in terms of backwards, goal-directed search
+(in the style pioneered by the original Prolog and formalized by the
+notion of \emph{uniform proofs}~\cite{Miller91apal}), while the
+synchronous connectives have a logic programming interpretation based
+on undirected, forward-chaining, concurrent execution.
+
+The connection between these two rather different modes of execution is
+mediated by the monad constructor~$\{\cdot\}$. Syntactically, the monad
+constructor allows synchronous connectives to be embedded within
+asynchronous formulas. Semantically, the point at which the monad
+constructor is introduced in a proof demarcates a transition from
+backward to forward reasoning (thinking, as usual, of the construction
+of the proof from the outermost goal upward).
+
+The formula language of LolliMon is as follows.
+$$
+\begin{array}{lll}
+A & ::= &  P 
+      \mid \top 
+      \mid A_1 \with A_2 
+      \mid \\&& A_1 \limp A_2 
+      \mid A_1 \iimp A_2 
+      \mid \forall x{:}\tau.A  
+      \mid \{ S \} 
+\\[1ex]
+S & ::= &  A
+      \mid \bang A
+      \mid \one 
+      \mid S_1 \tensor S_2 
+      \mid \exists x{:}\tau.S 
+\end{array}
+$$
+
+As in other logic programming languages such as
+$\lambda$Prolog~\cite{Miller86iclp}, object types~$\tau$ are used to
+enforce the well-formedness of the objects of the system being
+modeled.
+The syntax of objects and object types is not discussed in the present
+paper; it is an entirely standard (prenex) polymorphically typed
+$\lambda$-calculus.  The nonterminal~$P$ stands for an atomic proposition,
+which must be well-formed according to the discipline of the object type system.
+
+In the presentation of our logic, we will make use of three kinds of
+formula context, $\Gamma$, $\Delta$, and $\Psi$, which respectively contain unrestricted
+(intuitionistic) asynchronous hypotheses, linear asynchronous
+hypotheses, and linear synchronous hypotheses.
+$$
+\begin{array}{lll@{\qquad}l}
+  \Gamma & ::= & \cdot \mid \Gamma, A & \mbox{Unrestricted context}\\
+  \Delta & ::= & \cdot \mid \Delta, A & \mbox{Linear context}\\
+  \Psi   & ::= & \cdot \mid S, \Psi & \mbox{Synchronous context}\\
+\end{array}
+$$
+For the purposes of this description we may take $\Gamma$ and
+$\Delta$ to be multisets. We write $\Delta_1,\Delta_2$ to
+denote the multiset union of $\Delta_1$ and $\Delta_2$.
+There will be no explicit contraction or weakening rules for~$\Gamma$,
+but contraction and weakening for~$\Gamma$ are metatheorems of LolliMon's
+sequent calculus.
+
+In the
+LolliMon interpreter, the order of hypotheses is significant only in
+terms of which hypothesis is non-deterministically selected for
+focusing.  However the third sort of context, $\Psi$, is not only linear but
+ordered; the ordering of $\Psi$ helps to control the sequence of
+invertible left rules applied to its elements, as we will see below.
+
+% Right inversion
+\def\CLFRIseq#1#2#3{#1;#2\Rightarrow#3}
+% Left focusing
+\def\CLFLFseq#1#2#3#4{#1;#2;#3\mathrel{>\!\! >}#4}
+% (L)ax forward chaining
+\def\CLFLseq#1#2#3{#1;#2\rightarrow#3}
+% (L)ax left focusing
+\def\CLFLLFseq#1#2#3#4{#1;#2;#3\mathrel>#4}
+% Left inversion
+\def\CLFLIseq#1#2#3#4{#1;#2;#3\rightarrow#4}
+% Right focusing
+\def\CLFRFseq#1#2#3{#1;#2\mathrel{>\!\! >}#3}
+
+We present the logical rules of LolliMon in a sequent calculus
+formulation intended to bring out most clearly the relationship of the
+rules to LolliMon's operational semantics.  For a
+natural-deduction-style presentation, see the technical report on
+CLF (the dependent type theory of which LolliMon's
+logic is a fragment)~\cite{Watkins02tr}.  
+
+We classify the logical rules of LolliMon into three basic kinds: {\it
+inversion}, {\it focusing}, and {\it transition}.  Inversion rules are
+always applied eagerly; their use can never cause proof search to fail.
+Focusing rules are those which entail a significant choice; their use
+can cause a particular branch in proof search to fail.  All inversion
+and focusing rules act either on a specific hypothesis (left) or on the
+conclusion (right) of the sequent, and we identify them accordingly.
+Lastly, we have transition rules that initiate or terminate a sequence
+of inversion or focusing rules.
+
+Very roughly, the operational semantics of LolliMon can be described
+in terms of five modes of execution.
+Four capture inversion and focusing, each on the left and the right.
+An additional mode is needed because of differences in the way
+left focusing happens depending on whether the formula on the right
+is in the monad (a synchronous formula $S$) or outside it (an atomic
+formula $P$).
+
+Our first two computation modes, \emph{right inversion} and
+\emph{left focusing}, are associated with asynchronous
+formulas $A$, and are inherited from the operational semantics of
+Lolli~\cite{Hodas94ic}.
+$$
+\begin{array}{ll}
+  \CLFRIseq{\Gamma}{\Delta}{A} & \hbox{Right inversion} \\
+  \CLFLFseq{\Gamma}{\Delta}{A}{P} & \hbox{Left focusing} \\
+\end{array}
+$$
+%
+The other three computation modes, \emph{monadic left focusing},
+\emph{left inversion}, and \emph{right focusing}, are
+associated with synchronous formulas $S$.  In addition, we
+have a transition sequent, which, when read bottom-up,
+marks the end of left inversion and precedes
+monadic left or right focusing.  We call this a
+\emph{forward chaining} sequent in view of its eventual
+operational interpretation.  The transition on the other side, from right
+inversion to left focusing, takes place at $\CLFRIseq{\Gamma}{\Delta}{P}$.
+There is no separate sequent form for the latter transition, because there
+only one kind of focusing is possible.
+$$
+\begin{array}{ll}
+  \CLFLseq{\Gamma}{\Delta}{S} & \hbox{Forward chaining} \\
+  \CLFLLFseq{\Gamma}{\Delta}{A}{S} & \hbox{Monadic left focusing} \\
+  \CLFLIseq{\Gamma}{\Delta}{\Psi}{S} & \hbox{Left inversion} \\
+  \CLFRFseq{\Gamma}{\Delta}{S} & \hbox{Right focusing} \\
+\end{array}
+$$
+The operational meaning of these modes is discussed below, along
+with the logical rules for each of them.
+
+\subsection{Asynchronous Formulas}
+\label{ssec:async-form}
+As LolliMon is a conservative extension of Lolli, which is based on
+the asynchronous connectives $\top$, $\with$, $\iimp$, $\limp$, and $\forall$,
+the logical rules for these
+connectives are inherited essentially unchanged from Lolli.  For each
+connective, there is a right inversion rule and a left focusing rule.  The
+basic search strategy decomposes the right formula using inversion rules
+until it is atomic, then non-determinis\-tically selects a
+hypothesis, which is focused on until the same atomic
+formula is reached.  The following rules are used to select an
+unrestricted or a linear hypothesis for focusing.
+$$
+\nsrule{\CLFLFseq{\Gamma,A}{\Delta}{A}{P}}
+       {\CLFRIseq{\Gamma,A}{\Delta}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{uhyp}}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFRIseq{\Gamma}{\Delta,A}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{lhyp}}}
+$$
+
+The following axiom rule says we are finished if the atomic formula from
+the goal matches the atomic formula obtained by focusing on a
+hypothesis.
+$$
+\nsrule{}
+       {\CLFLFseq{\Gamma}{\cdot}{P}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{atm}}}
+$$
+
+The right and left rules for unrestricted implication are standard.
+$$
+\nsrule{\CLFRIseq{\Gamma,A}{\Delta}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A \iimp B}}
+       {\GRuleName{\CLFsystem}{\iimp_R}}
+\quad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\cdot}{A}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\iimp B}{P}}
+       {\GRuleName{\CLFsystem}{\iimp_L}}
+$$
+%
+Note the restriction in $\iimp_L$ that the derivation of $A$ not
+require linear hypotheses.
+
+The right and left rules for linear implication are also standard:
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta,A}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A\limp B}}
+       {\GRuleName{\CLFsystem}{\limp_R}}
+\quad
+\nsrule{\CLFLFseq{\Gamma}{\Delta_1}{B}{P}
+        \quad
+        \CLFRIseq{\Gamma}{\Delta_2}{A}}
+       {\CLFLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
+       {\GRuleName{\CLFsystem}{\limp_L}}
+$$
+
+The right and left rules for additive conjunction and unit are
+as follows:
+$$
+\nsrule{}
+       {\CLFRIseq{\Gamma}{\Delta}{\top}}
+       {\GRuleName{\CLFsystem}{\top_R}}
+\qquad
+\hbox{(no $\top_L$ rule)}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{A}
+        \andalso
+        \CLFRIseq{\Gamma}{\Delta}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A\with B}}
+       {\GRuleName{\CLFsystem}{\with_R}}
+$$
+$$
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L1}}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L2}}}
+$$
+
+Finally, we have right and left rules for universal quantification.
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{[a/x]A}}
+       {\CLFRIseq{\Gamma}{\Delta}{\forall x{:}\tau.A}}
+       {\GRuleName{\CLFsystem}{\forall_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
+       {\GRuleName{\CLFsystem}{\forall_L}}
+$$
+%
+Here, $a$~stands for a fresh parameter of type~$\tau$, the scope of
+which is restricted to the subderivation above the~$\forall_R$ rule. The term~$t$
+in the corresponding left rule must be well-formed of type~$\tau$
+with respect to all parameters that are in scope at the point the
+left rule is applied.  At the level of description considered here,
+the term~$t$ is picked non-deterministically.  In the LolliMon
+implementation, it is determined by unification.
+
+This
+concludes the description of the fragment of LolliMon inherited from
+Lolli.
+
+There is one additional rule associated with right inversion:
+the right rule for the monad constructor $\{\cdot\}$.
+$$
+\nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
+       {\CLFRIseq{\Gamma}{\Delta}{\{S\}}}
+       {\GRuleName{\CLFsystem}{\{\}_R}}
+$$
+%
+This rule moves the proof search procedure from the goal-directed
+inversion mode of Lolli to the forward-chaining
+mode of LolliMon.  The logical interpretation of the forward
+chaining judgment appearing in the premise is the lax judgment of lax
+logic~\cite{Fairtlough97ic,Pfenning01mscs}.  Because the monad
+constructor connects the truth judgment and the lax judgment of the
+logic, it is subject to somewhat different symmetries than the rest of
+the asynchronous connectives.  In particular, its left rule does not
+appear among the left focusing rules treated in this section;
+instead, it appears in the monadic left focusing rules
+discussed in Section~\ref{ssec:sync-form}.
+
+\subsection{Synchronous Formulas}
+\label{ssec:sync-form}
+
+We now turn to the proof rules concerning the synchronous connectives
+$\tensor$, $\one$, $\exists$, and $\bang$.
+
+Here, the right rules are not invertible, so the strategy of first
+decomposing the formula on the right by inversion is inadequate.
+In general, the derivation of a sequent with a
+synchronous goal formula~$S$ must first allow for some forward
+reasoning from hypotheses before applying non-invertible right rules
+to break down the goal $S$; see Andreoli's analysis of linear logic
+proof search~\cite{Andreoli92} for more details.  Exactly which
+hypotheses are focused on for forward reasoning is a
+non-deterministic choice.
+
+We have the following two rules, which allow for
+focusing on an unrestricted or linear hypothesis.
+$$
+\nsrule{\CLFLLFseq{\Gamma,A}{\Delta}{A}{S}}
+       {\CLFLseq{\Gamma,A}{\Delta}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{uhyp}'}}
+\qquad
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{A}{S}}
+       {\CLFLseq{\Gamma}{\Delta,A}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{lhyp}'}}
+$$
+%
+Here the special nature of the lax judgment underlying the forward
+chaining mode enters: the hypothesis selected must have a head of the
+form $\{S'\}$, instead of a head of the form $P$.  This requirement is
+made explicit in the $\{\}_L$ rule below.  There is additional
+non-determinism here, compared with the case of heads of the
+form~$P$, because the formula~$S'$ need not match the ultimate goal
+formula~$S$ on the right.
+
+The monad constructor $\{S'\}$ is decomposed by the following left
+rule.
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{S'}{S}}
+       {\CLFLLFseq{\Gamma}{\Delta}{\{S'\}}{S}}
+       {\GRuleName{\CLFsystem}{\{\}_L}}
+$$
+After removing the monad constructor, the formula $S'$ is decomposed
+by left rules, which \emph{are} invertible for synchronous formulas.
+These left rules can add further parameters and hypotheses to the
+contexts.  Finally, once $S'$ is completely decomposed, we return
+to the forward chaining judgment:
+$$
+\nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\cdot}{S}}
+       {\GRuleName{\CLFsystem}{\rightarrow\rightarrow}}
+$$
+
+Thus, the overall effect of the sequence of rules beginning with
+$\hbox{uhyp}'$ or $\hbox{lhyp}'$ and ending with
+$\rightarrow\rightarrow$ is to consume some hypotheses during left focusing
+by propagating them to subgoals,
+and introduce others by left inversion. The goal
+formula~$S$ on the right is left alone.  
+We think of this sequence as an atomic step in the execution of a concurrent
+system. The application of the $\rightarrow\rightarrow$ rule
+demarcates the atomic step. As described in Section~\ref{sec:opsem},
+the use of the $\rightarrow\rightarrow$ rule forces a commitment to
+all of the suspended non-deterministic choices encountered during the
+atomic step.
+
+We have seen how the forward chaining judgment allows working on
+the left by reasoning forward from hypotheses.
+The other way to proceed, when forward chaining, is to choose to
+work on the goal~$S$ on the right, by applying non-invertible right
+rules.  Operationally, the decision to focus
+on the goal on the right implicitly terminates forward chaining mode.
+We capture this behavior with the following rule.
+$$
+\nsrule{\CLFRFseq{\Gamma}{\Delta}{S}}
+       {\CLFLseq{\Gamma}{\Delta}{S}}
+       {\GRuleName{\CLFsystem}{>\!\! >\rightarrow}}
+$$
+This rule corresponds to the coercion from the truth judgment to the
+lax judgment in lax logic.
+
+Note that all three forward chaining rules, $\hbox{uhyp}'$,
+$\hbox{lhyp}'$, and $\rightarrow\rightarrow$, are applicable whenever
+the search procedure is in forward chaining mode.  For the purposes of
+the logical description of LolliMon, we are content to leave as a
+non-deterministic choice which forward chaining rule should be
+applied.  The operational semantics described in
+Section~\ref{sec:opsem} imposes further structure on these choices.
+
+\subsubsection{Monadic Left Focusing}
+The rules associated with the monadic left focusing judgment
+$\CLFLLFseq{\Gamma}{\Delta}{A}{S}$ are very similar to those described
+previously for $\CLFLFseq{\Gamma}{\Delta}{A}{P}$.  In both cases,
+non-invertible left rules are applied to the formula~$A$ until its
+head ($\{S'\}$ or $P'$, respectively) is reached.  However, the two
+sequent forms differ, in that the head~$P'$ of the latter is forced to
+be equal to the atomic goal~$P$ produced by right inversion,
+while the head~$\{S'\}$ of the
+former does not have to be equal to the formula~$S$ on the
+right.
+
+Here we show the modified left rule for linear implication; the other
+left rules for asynchronous connectives are modified along the same
+lines.
+$$
+\nsrule{\CLFLLFseq{\Gamma}{\Delta_2}{B}{S}
+        \andalso
+        \CLFRIseq{\Gamma}{\Delta_1}{A}}
+       {\CLFLLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{S}}
+       {\GRuleName{\CLFsystem}{\limp'_L}}
+$$
+
+\subsubsection{Left Inversion}
+The rules for invertibly decomposing a synchronous formula on the left
+are simple adaptations of the usual sequent calculus left rules for
+each connective to our setting.  When inversion begins, the context~$\Psi$
+contains a single formula~$S'$.  The context~$\Psi$ can contain more than
+one formula after some left rules have been applied.  Invertibility allows
+us to force the decomposition to occur in a left-to-right order.  This
+avoids permutations of the left rules that would otherwise lead to an
+unwanted explosion in the number of proofs.  Thus, each rule decomposes
+the leftmost synchronous formula in the context~$\Psi$.  When an asynchronous
+formula becomes leftmost, it is moved to the linear context, because there are
+no more invertible left rules to apply to it.
+Finally, at some point the context~$\Psi$ becomes empty, and forward chaining
+resumes.
+
+The left rules for multiplicative conjunction and unit are as follows:
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\one,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\one_L}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{S_1,S_2,\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{S_1\tensor S_2,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\tensor_L}}
+$$
+
+The left rule for the existential quantifier is the following:
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{[a/x]S',\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\exists x{:}\tau.S',\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\exists_L}}
+$$
+%
+As in the $\forall_R$ rule, the parameter $a$ has type $\tau$ and its
+scope is the subderivation above the $\exists_L$ rule.
+
+The left rule for the unrestricted modality adds a hypothesis to the
+unrestricted context.  The syntax of LolliMon requires the formula underneath
+the modality to be asynchronous.
+$$
+\nsrule{\CLFLIseq{\Gamma,A}{\Delta}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\bang A,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\bang_L}}
+$$
+
+Finally, the rule for moving an asynchronous formula to the linear context
+is as follows:
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta,A}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{A,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{async}}}
+$$
+
+
+\subsubsection{Right Focusing}
+At some point the derivation transitions from forward chaining to
+right focusing mode, which applies non-invertible right rules to search for a proof of the
+synchronous goal formula.  Each of these rules is a simple adaptation
+of the corresponding right rule from linear logic.
+
+The right rules for multiplicative conjunction and unit are as follows:
+$$
+\nsrule{}
+       {\CLFRFseq{\Gamma}{\cdot}{\one}}
+       {\GRuleName{\CLFsystem}{\one_R}}
+\qquad
+\nsrule{\CLFRFseq{\Gamma}{\Delta_1}{S_1}
+        \andalso
+        \CLFRFseq{\Gamma}{\Delta_2}{S_2}}
+       {\CLFRFseq{\Gamma}{\Delta_1,\Delta_2}{S_1\tensor S_2}}
+       {\GRuleName{\CLFsystem}{\tensor_R}}
+$$
+
+The right rule for the existential quantifier is the following:
+$$
+\nsrule{\CLFRFseq{\Gamma}{\Delta}{[t/x]S}}
+       {\CLFRFseq{\Gamma}{\Delta}{\exists x{:}\tau.S}}
+       {\GRuleName{\CLFsystem}{\exists_R}}
+$$
+As in the~$\forall_L$ rule, we require $t$ to have type $\tau$ and determine
+it by unification.
+
+The right rule for the unrestricted modality is the following:
+$$
+\nsrule{\CLFRIseq{\Gamma}{\cdot}{A}}
+       {\CLFRFseq{\Gamma}{\cdot}{\bang A}}
+       {\GRuleName{\CLFsystem}{\bang_R}}
+$$
+%
+The syntax of LolliMon requires an asynchronous formula under the
+unrestricted modality, so at the point the right rule for the modality
+is applied, the right focusing stage ends.
+
+Finally, when an asynchronous formula appears as a subformula of a
+synchronous formula, the right focusing stage ends, and a new
+right inversion stage begins.
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{A}}
+       {\CLFRFseq{\Gamma}{\Delta}{A}}
+       {\GRuleName{\CLFsystem}{\Rightarrow>\!\!>}}
+$$
+
+The logical rules of LolliMon enjoy the admissibility of
+cut.  This is a consequence of a corresponding theorem
+for the natural deduction formulation of CLF~\cite{Watkins02tr}.
+
+
+\section{Operational Semantics}
+\label{sec:opsem}
+Designing an operational semantics for the proof rules given in
+Section~\ref{sec:logical-rules} is non-trivial.  There is a great deal of
+non-determinism to be removed, and there are many choices to be taken,
+potentially leading to different operational behavior.  In this section, we informally
+describe an operational semantics for LolliMon which results in a
+language integrating both committed choice concurrency and
+backtracking goal-directed search.
+
+A number of design decisions guided our specification.  Since LolliMon
+is conceived as a concurrent logic programming language, completeness
+of the proof search procedure is not a concern.  More concretely,
+committed choice and quiescence (to be described below) lead to a
+strategy that will not explore all of the search space.  In addition,
+the operational semantics must be compatible with Lolli's over the fragment
+that Lolli and LolliMon share.
+
+The operational semantics of LolliMon is a bidirectional proof search
+procedure.  When LolliMon proofs contain no monadic goals, the proof
+search procedure is similar to that of other logic languages such as
+$\lambda$Prolog or Lolli: a backward-chaining, backtracking
+search for a uniform proof.  In contrast, when a monadic
+goal is found, a forward-chaining, committed choice strategy is
+applied.  Thus the monad affects the basic mode of proof search, and
+can be interpreted as staging the LolliMon computation.  In the
+remainder of this section we detail the different stages of this
+computation: goal-directed search, backward-chaining and
+forward-chaining.
+
+\subsection{Example: Asynchronous $\pi$-Calculus}
+
+In order to make the discussion of LolliMon's operational semantics
+more concrete, we will be using a representation of an
+asynchronous\footnote{The use of ``asynchronous'' here is not related
+to our earlier uses of the term.}  variant of Milner's
+$\pi$-calculus~\cite{Milner99} as a running example. The $\pi$-calculus is
+based on a syntax for concurrently executing \emph{processes}~$P$. The
+processes interact by sending and receiving messages along named
+\emph{channels}~$c$.
+
+The basic process constructors are parallel composition $P\mid Q$ and
+its unit~$0$ (representing a process that
+is finished).  There is also a construct $\nu c. P(c)$ for binding a
+new channel name within a process.  In traditional presentations
+of the $\pi$-calculus, scope extrusion is used to propagate the bound
+channel name from its initial scope to more global scopes.  In LolliMon,
+we will see that fresh parameters introduced by the~$\exists_L$ rule
+fulfill the same function.
+
+\def\pin#1#2{#1(#2)}
+\def\pout#1#2{\bar{#1}\langle#2\rangle}
+\def\prin#1#2{!#1(#2)}
+
+The process constructors concerned with communication are $\pin{c}{x}.P(x)$ for
+inputting a value along the channel~$c$ (with the process~$P(x)$
+continuing to execute using the communicated value in place of
+the variable~$x$), and $\pout{c}{v}$
+for outputting the value~$v$ along the channel~$c$. In this simple
+variant of the $\pi$-calculus, the only values are the channel names
+themselves.
+
+In addition, there is a replicated variant $\prin{c}{x}.P(x)$ of the
+input construction, which allows arbitrarily many values to be
+received along channel~$c$, each spawning a new copy of~$P(x)$ with
+the received value subsituted for~$x$. The replicated input process
+itself persists forever, once it has been introduced.
+
+\def\rep#1{\ulcorner#1\urcorner}
+\def\kwd#1{\expandafter\def\csname k#1\endcsname{\textbf{#1}}}
+\kwd{type}\kwd{expr}\kwd{chan}\kwd{par}\kwd{zero}\kwd{new}
+\kwd{in}\kwd{rin}\kwd{out}
+\def\to{\rightarrow}
+
+This concludes the syntax of the $\pi$-calculus. In the LolliMon
+implementation, each of these process constructors is represented by a
+term constructor in LolliMon's term language.
+$$
+\begin{array}{l}
+  \kexpr : \ktype. \qquad  \kchan : \ktype. \\[1ex]
+
+  \kpar : \kexpr \to \kexpr \to \kexpr. \\
+  \kzero : \kexpr. \\
+  \knew : (\kchan \to \kexpr) \to \kexpr. \\
+\end{array}$$ $$\begin{array}{l}
+  \kin : \kchan \to (\kchan \to \kexpr) \to \kexpr. \\
+  \krin : \kchan \to (\kchan \to \kexpr) \to \kexpr. \\
+  \kout : \kchan \to \kchan \to \kexpr.
+\end{array}
+$$
+%
+Note the use of higher-order abstract syntax to represent the
+$\pi$-calculus binding constructs.  There is a bijective
+\emph{representation function}~$\rep{\cdot}$ mapping $\pi$-calculus
+process expressions to well-typed, canonical LolliMon terms having
+type~$\kexpr$.
+$$
+\begin{array}{l}
+  \rep{P\mid Q} = \kpar\,\rep{P}\,\rep{Q} \\
+  \rep{0} = \kzero \\
+  \rep{\nu c.P(c)} = \knew\,(\lambda c{:}\kchan.\rep{P(c)}) \\
+  \rep{\pin{c}{x}.P(x)} = \kin\,c\,(\lambda x{:}\kchan.\rep{P(x)}) \\
+  \rep{\prin{c}{x}.P(x)} = \krin\,c\,(\lambda x{:}\kchan.\rep{P(x)}) \\
+  \rep{\pout{c}{v}} = \kout\,c\,v
+\end{array}
+$$
+
+\subsection{Goal-Directed Proof Search}
+\label{ssec:goal-directed}
+The right inversion rules of LolliMon are exactly those of Lolli, except for
+$\GRuleName{\CLFsystem} {\{\}_R}$.  These rules are applied from the
+bottom up to decompose a goal into atomic and/or monadic subgoals. It
+should be noted that rules other than the right rules are only
+considered when the goal is either atomic or monadic.  When there are
+no monadic goals involved, LolliMon proofs are
+uniform~\cite{Miller91apal}.  When there are monadic goals, this
+strategy can be seen as an extension of uniform proofs, where the
+monad introduces an intermediate stage, forward chaining, before
+the goal is further decomposed. Forward chaining, which corresponds
+to the lax judgment of lax logic, is particular to LolliMon.
+
+The non-determinism implicit in the choice of a term $t$ in the
+$\exists_R$ rule (as well as the $\forall_L$ rule) is handled as usual
+by generating a logic variable and relying upon unification to
+appropriately instantiate this variable.  Since our term calculus is a
+$\lambda$-calculus, we use a deterministic version of higher-order
+unification that suspends any non-pattern~\cite{Miller91jlc} unification
+problems until they are further instantiated.  Any suspended
+unification problems remaining at the end of a query are reported as
+leftover constraints.
+
+The non-deterministic splitting of the linear context implicit in the
+$\tensor_R$, $\limp_L$, and $\limp'_L$ rules
+is common to traditional linear logic programming
+languages~\cite{Hodas94ic,PymHarland94}.  The low-level management of
+linear hypotheses turns out to be unaffected by the addition of a
+forward chaining phase to proof search.  Our strategy for managing
+linear hypotheses is a new variation of the I/O system for
+Lolli~\cite{Hodas94ic}.  The new strategy is described in detail
+in~\cite{LopPol05lpar}.
+
+\subsection{Backward Chaining}
+\label{ssec:bc}
+When an atomic goal is encountered in right inversion mode,
+a hypothesis with an atomic head must be chosen to focus on.
+Following the behavior of Lolli, our implementation keeps track of the
+order in which hypotheses\footnote{We think of program clauses as
+  hypotheses assumed at the beginning of each query.}, both linear and
+unrestricted, were assumed and tries to focus first on the most recent
+ones whose heads unify with the atomic goal; see
+Section~\ref{ssec:ordering} for more discussion on clause ordering in
+LolliMon.  The usual Prolog backtracking semantics is used when a
+particular choice fails, or to search for alternative solutions.
+
+Upon choosing a hypothesis, the system switches to left
+focusing mode and applies left rules to the selected
+hypothesis, keeping track of any new subgoals generated (by the
+$\iimp_L$ and $\limp_L$ rules) along the way.  When the head of the
+selected hypothesis is finally exposed, it is unified with the
+original atomic goal, and unless unification fails, proof search will
+continue by solving any pending subgoals.  This strategy is the usual
+backchaining mechanism of Prolog.
+
+If left focusing encounters the $\with$ connective, 
+two rules, $\with_{L1}$ and $\with_{L2}$, might be applied.
+The resolution of this choice is made
+by the same mechanism that chooses a hypothesis to focus on in the
+first place, as though there were two clauses, one for each branch
+of the $\with$.
+
+\subsection{Forward Chaining}
+\label{ssec:forward}
+As mentioned in Section~\ref{ssec:async-form}, in order to construct
+a proof of $\{S\}$, the LolliMon system enters a forward chaining
+mode and tries to derive $\CLFLseq{\Gamma}{\Delta}{S}$.
+The most important difference
+between goal-directed search (as in Lolli) and forward chaining is
+that for forward chaining, the formula~$S$ on the right does not have
+to match the head of a clause selected for focusing on the left.  In
+fact, it is perfectly acceptable for a program clause to be selected
+that doesn't mention~$S$ at all.  However, only program clauses having
+\emph{some} monadic formula $\{S'\}$ at their heads can be selected.
+
+As Section~\ref{ssec:sync-form} hints, we think of the forward
+chaining phase of proof search as a sequence of atomic steps.  Each
+atomic step begins with an application of the $\hbox{uhyp}'$ or
+$\hbox{lhyp}'$ rule that selects a hypothesis~$A$ to focus on, leading to
+a sequent of the form
+$$
+  \CLFLLFseq{\Gamma}{\Delta}{A}{S}.
+$$
+%
+Next, the system breaks down $A$ by applying a series of non-invertible
+left rules, postponing any new subgoals in the manner described in
+Section~\ref{ssec:bc}.  Eventually, the head of $A$, which
+must be a formula of the form~$\{S'\}$, is reached:
+$$
+\CLFLLFseq{\Gamma}{\Delta'}{\{S'\}}{S}.
+$$
+%
+Here $\Delta'$ is the subset of $\Delta$ remaining after the
+context is split between this branch of the proof and any subgoals.
+The LolliMon implementation determines $\Delta'$ lazily.
+
+At this point, after establishing that the chosen clause is indeed
+monadic, any pending subgoals are solved.  If a
+subgoal cannot be solved, then the system backtracks to the beginning
+of the forward chaining cycle and looks for a new clause to focus on.
+The procedure up to this point is the same as that
+employed for backward chaining, except that no unification is involved.
+
+Next, supposing any pending subgoals have been solved, the $\{\}_L$ rule is applied, leading to
+$$
+  \CLFLIseq{\Gamma}{\Delta'}{S'}{S},
+$$
+and after applying a series of invertible left rules to~$S'$, we
+have a sequent of the form
+$$
+  \CLFLIseq{\Gamma,\Gamma_0}{\Delta',\Delta_0}{\cdot}{S}
+$$
+%
+where $\Gamma_0$ and $\Delta_0$ are any new assumptions added during the
+decomposition of $S'$.  Finally, the rule $\rightarrow\rightarrow$ is
+applied to finish the atomic step, and we are left with
+$$
+\CLFLseq{\Gamma,\Gamma_0}{\Delta',\Delta_0}{S},
+$$
+%
+which is again in the forward chaining mode.  The application of
+$\rightarrow\rightarrow$ additionally causes the system to commit to
+this atomic step by removing all the choice points generated while
+focusing on the original $A$ or solving subgoals generated during focusing.
+
+Thus, the overall effect of the atomic step is to possibly consume some
+linear hypotheses and possibly introduce new unrestricted or linear
+hypotheses. In addition, the process of proving the atomic step may
+have had a side effect on the state of the unification store.
+
+The other way to proceed when in forward chaining mode
+$$
+  \CLFLseq{\Gamma}{\Delta}{S}
+$$
+is to focus on the right-hand formula~$S$ using the $>\!\!>\rightarrow$ rule,
+leading to
+$$
+  \CLFRFseq{\Gamma}{\Delta}{S}.
+$$ 
+%
+This terminates the forward chaining phase, and the LolliMon
+interpreter proceeds by applying non-invertible right rules to~$S$.
+Sections \ref{ssec:quiescence}~and~\ref{ssec:saturation} describe
+strategies for
+deciding when to end forward chaining in this way.
+
+\kwd{o}\kwd{proc}\kwd{msg}
+
+\textbf{EXAMPLE.}\enspace 
+Using the syntax introduced earlier for the $\pi$-calculus, we can set
+up a forward-chaining interpreter for $\pi$-calculus processes.
+First, we introduce the following predicates:
+$$
+\begin{array}{l}
+\kproc : \kexpr \to \ko. \\
+\kmsg : \kchan \to \kchan \to \ko. \\
+\end{array}
+$$
+These two predicates correspond to the message and process types of
+Kobayashi and Yonezawa's ACL~\cite{Kobayashi94tr}.
+The idea of the interpreter is that the state of the $\pi$-calculus
+execution will be represented by the multiset of linear hypotheses
+available in forward chaining mode.
+The goal on the right-hand side while the interpreter is running will
+always be~$\one$.
+Suppose we want to initialize
+the interpreter with a process
+$$
+\begin{array}{rll}
+  P_0 &=& \rep{\pout{c}{x} \mid \pin{c}{y}.0} \\
+      &=& \kpar\,(\kout\,c\,x)\,(\kin\,c\,(\lambda y.\kzero)). \\
+\end{array}
+$$
+Initially, we have only the linear hypothesis $\kproc\,P_0$ in
+the context.  By adding the rule
+$$
+  A_0 = \forall P.\forall Q.\kproc\,(\kpar\,P\,Q) \limp \{\kproc\,P \tensor \kproc\,Q\}
+$$
+to our logic program, we enable a forward chaining step that consumes
+the hypothesis $\kproc\,P_0$ and introduces two new hypotheses, namely
+$\kproc\,(\kout\,c\,x)$ and $\kproc\,(\kin\,c\,(\lambda y.\kzero))$.
+
+Suppose, then, that we start with just~$P_0$ running, which according
+to the invariant of the interpreter, means that we are searching for
+a LolliMon proof of the sequent
+$$
+  \CLFLseq{\Gamma}{\kproc\,P_0}{\one}.
+$$
+Here $\Gamma$~includes all the rules of our logic program for the
+interpreter.
+The first step is to focus on the program clause $A_0$ above,
+using the $\hbox{uhyp}'$ rule, leaving
+$$
+  \CLFLLFseq{\Gamma}{\kproc\,P_0}{A_0}{\one}.
+$$
+At this point we need to apply the rule $\forall'_L$ twice to get
+rid of the universal quantifiers at the outside of~$A_0$.  The LolliMon
+system will instantiate the bound variables $P$~and~$Q$ of the universal
+quantifiers by unification, but we know what the
+instantiation will ultimately be, namely $P=\kout\,c\,x$ and
+$Q=\kin\,c\,(\lambda y.\kzero)$, so for this discussion we use it from the start.
+
+We are then left with the sequent
+$$
+  \CLFLLFseq{\Gamma}{\kproc\,P_0}{\kproc\,(\kpar\,P\,Q)
+    \limp \{\kproc\,P \tensor \kproc\,Q\}}{\one}
+$$
+with $P$~and~$Q$ as above. The next step is to use $\limp'_L$ to
+eliminate the linear implication.  This leaves us with
+$$
+  \CLFLLFseq{\Gamma}{\cdot}{\{\kproc\,P \tensor \kproc\,Q\}}{\one}\\
+$$ 
+%
+while the second premise
+$$
+  \CLFRIseq{\Gamma}{\kproc\,P_0}{\kproc\,(\kpar\,P\,Q)}
+$$
+%
+is stored on the subgoal stack.  Here we've also anticipated the
+partitioning the linear hypotheses in the only way that
+can succeed: namely, the single linear hypothesis $\kproc\,P_0$ is
+allocated to the second subgoal.
+
+Since we now have formula of the form $\{S'\}$ on the left, we suspend
+left focusing and apply inversion
+to the stored subgoal:
+$$
+  \CLFRIseq{\Gamma}{\kproc\,P_0}{\kproc\,(\kpar\,P\,Q)},
+$$
+%
+which is quickly dealt with, since $P_0=\kpar\,P\,Q$.  
+
+We then return to the main focusing proof.  The only rule that can be
+used is $\{\}_L$, which leads to
+$$
+  \CLFLIseq{\Gamma}{\cdot}{\kproc\,P\tensor\kproc\,Q}{\one}.
+$$
+At this point, several left inversion rules
+are applied, and we end up with
+$$
+  \CLFLIseq{\Gamma}{\kproc\,P, \kproc\,Q}{\cdot}{\one}.
+$$
+%
+Now the only applicable rule is $\rightarrow\rightarrow$, which leaves us with
+$$
+  \CLFLseq{\Gamma}{\kproc\,P, \kproc\,Q}{\one}
+$$
+%
+to prove.  There were no non-deterministic choices involved in the
+execution of this atomic step, because our program had only one
+clause, but in general, there might be choice points created between
+the use of $\hbox{uhyp}'$ or $\hbox{lhyp}'$ and the use of
+$\rightarrow\rightarrow$.
+
+It is perhaps worth noting at this point that we are not at all
+interested in the question of \emph{completeness}; that is, the
+possibility of finding any proof admitted by the logical rules.  Such
+a notion of completeness might be useful in model checking, or some
+other analysis intended to explore the entire state space of the
+concurrent system.  But LolliMon is not a model checker; the aim here
+is to \emph{execute} a concurrent system, not to map its entire state
+space.  Accordingly, just after each forward step is taken, any choice
+points introduced during the the proof of the forward step are
+dropped; LolliMon \emph{commits} to the forward step. Also, once the
+decision to stop forward chaining has been taken, LolliMon commits to
+that decision, never going back to consider executions that might have
+lasted longer.
+
+\subsection{Quiescence}
+\label{ssec:quiescence}
+We have seen how LolliMon takes each atomic step in forward chaining
+mode.  There remain the issues of \emph{which} forward chaining steps
+it should take, and \emph{when} to stop taking forward chaining steps
+and return to a goal-directed search strategy.
+The underlying logic on which LolliMon is based does not constrain
+these choices at all.
+In this section, and the following, we discuss the termination criterion,
+the decision about when to finish forward chaining and return to goal-directed
+proof search.  Section~\ref{ssec:ordering} treats the question of which
+forward steps should be taken.
+
+Since the intended semantics of forward chaining mode is the simulation
+of various concurrent object systems, the decision about when to finish
+forward chaining is equivalent to deciding how to terminate a concurrent
+system.  The strategies which turn out to be most useful in practice are
+based purely on the behavior of the concurrent system; that is, they are
+based only on what forward steps are available to be taken.
+One might also
+imagine a criterion based on the goal formula~$S$ that will be proved on
+the right once forward chaining ends, but this turns out to be fraught
+with difficulties.  The current LolliMon implementation never
+looks at the formula on the right when in forward chaining mode, either
+to decide which forward steps should be taken, or to decide when to
+stop taking forward steps.  This reduces further the space of possible
+proofs found by the LolliMon interpreter.
+
+The simplest strategy 
+depending only on what
+forward steps are available to be taken
+is \emph{quiescence}: the concurrent execution (that is, the forward
+chaining phase) ends when \emph{no} forward step is available to be
+taken.
+
+{\bf EXAMPLE.}\enspace
+We can illustrate the notion of quiescence by completing the simple
+$\pi$-calculus execution begun above. First, we reveal the remaining
+clauses in the $\pi$-calculus interpreter's logic program:
+$$
+\begin{array}{l}
+  \kproc\,\kzero \limp \{\one\}. \\
+  \forall P.\kproc\,(\knew\,(\lambda c.P\,c)) \limp \{\exists c. \kproc\,(P\,c)\}. \\[1ex]
+  \forall C.\forall V.\kproc\,(\kout\,C\,V) \limp \{\kmsg\,C\,V\}. \\
+  \forall C.\forall P.\kproc\,(\kin\,C\,(\lambda x.P\,x)) \\
+    \qquad{}\limp \{\forall V.\kmsg\,C\,V \limp \{\kproc\,(P\,V)\}\,\}. \\
+  \forall C.\forall P.\kproc\,(\krin\,C\,(\lambda x.P\,x)) \\
+    \qquad{}\limp \{\bang\forall V.\kmsg\,C\,V \limp \{\kproc\,(P\,V)\}\,\}. \\
+\end{array}
+$$
+The first two clauses are similar to the clause we have already seen
+for processes of the form $\kpar\,P\,Q$.  In each case a process is
+interpreted by LolliMon's own logical connectives---concurrent composition
+becomes $\tensor$, the unit $\kzero$ of composition becomes $\one$, and
+the channel-binding construct becomes $\exists$.  In the last case,
+the $\exists_L$ rule will introduce a fresh parameter to stand
+for the name of the new channel.
+
+The final three clauses are concerned with asynchronous communication.
+Each message containing the value $V$ and flowing along a channel $C$
+is represented by a linear hypothesis of the form $\kmsg\,C\,V$. The
+clause for $\kout$ creates such messages.  The clauses for $\kin$ and
+$\krin$ use the powerful technique of \emph{forward-generating new
+clauses}. In this case, the clause
+$$
+  \forall V.\kmsg\,C\,V \limp \{\kproc\,(P\,V)\}
+$$
+is introduced as a new linear (for $\kin$) or unrestricted (for $\krin$)
+hypothesis.
+
+Continuing the example execution of Section~\ref{ssec:forward}, the
+sequent
+$$
+  \CLFLseq{\Gamma}{\kproc\,(\kout\,c\,x), \kproc\,(\kin\,c\,(\lambda y.\kzero))}{\one},
+$$
+after several atomic steps, will eventually reach
+$$
+  \CLFLseq{\Gamma}{\kmsg\,c\,x, (\forall V.\kmsg\,c\,V \limp \{\kproc\,\kzero\})}{\one}.
+$$
+%
+At this point, none of the clauses in $\Gamma$ can be successfully
+focused on, so the only choice is to use the second linear hypothesis.
+This leads to
+$$
+  \CLFLLFseq{\Gamma}{\kmsg\,c\,x}{\forall V.\kmsg\,c\,V \limp \{\kproc\,\kzero\}}{\one},
+$$
+%
+and the atomic step is finished by applying left rules and solving
+the subgoal $\kmsg\,c\,x$ using the other linear hypothesis.
+At this point we have
+$$
+  \CLFLseq{\Gamma}{\kproc\,\kzero}{\one},
+$$
+and finally, after one more atomic step, we have
+$$
+  \CLFLseq{\Gamma}{\cdot}{\one},
+$$
+at which point no atomic forward chaining step is possible, so quiescence
+has been reached. Accordingly, the LolliMon system ends the forward chaining
+phase by applying $>\!\! >\rightarrow$, and the proof is completed with $1_R$.
+
+\subsection{Saturation}
+\label{ssec:saturation}
+The last section introduced quiescence, defined as a state in which
+no further forward steps are possible.  But sometimes it is more useful
+to consider \emph{saturation}: a state in which forward steps may be
+possible, but they do not lead to any new information.
+
+\kwd{r}\kwd{rr} 
+%
+For example, we may want to execute \emph{bottom-up logic programs}
+that repeatedly apply forward reasoning steps to a set of facts,
+each step extending the set of known facts, until no further facts
+can be deduced from those that are already known.
+
+{\bf EXAMPLE.}\enspace
+A simple example is a program to compute the
+transitive closure of a finite relation. Suppose we have a finite
+number of unrestricted hypotheses of the form $\kr\,A\,B$ for various
+pairs $A$~and~$B$.  We can then generate the transitive closure
+$\krr\,A\,B$ by the following program.
+$$
+\begin{array}{l}
+  \forall A.\forall B.\kr\,A\,B \iimp \{!\krr\,A\,B\}. \\
+  \forall A.\forall B.\forall C.
+    \krr\,A\,B \iimp \krr\,B\,C \iimp \{!\krr\,A\,C\}. \\
+\end{array}
+$$
+
+Each forward step taken by this program uses some facts concerning
+$\kr$ and $\krr$ to derive a new fact about $\krr$ and add it to the
+unrestricted context.  If we ran the program under the quiescence
+criterion for termination, it would execute forever (assuming we
+start with at least one fact concerning $\kr$), because more forward
+steps can always be taken, even if they only regenerate facts that
+were already known.
+
+The saturation criterion, on the other hand, disallows forward
+reasoning steps that either have no effect on the set of available
+linear and unrestricted hypotheses, or simply reintroduce unrestricted
+hypotheses that were already known.  We define a \emph{non-trivial
+  step} to be an atomic forward chaining step which causes a change to
+either of the logical contexts, or to the state of the unification
+store.  We then define saturation to mean that no non-trivial step is
+possible.
+
+Assuming there is at least one axiom concerning $\kr$, the program above
+saturates in a finite number of steps, because all the hypotheses
+introduced are unrestricted and $\krr$ is finite.  Once every
+deducible consequence $\krr\,A\,B$ ends up in the unrestricted context,
+no non-trivial steps are possible, and saturation is reached.  We exhibit
+realistic examples of this bottom-up technique in
+Section~\ref{sec:examples}.
+
+The LolliMon implementation always uses saturation to decide when to
+stop forward chaining.  This is not observably different from quiescence,
+except that a concurrent execution might run forever under quiescence
+(after some point always returning to the same state), while terminating
+under saturation.
+
+\subsection{Clause Ordering}
+\label{ssec:ordering}
+Saturation checking is implemented by
+term indexing.  Specifically, LolliMon unifies unrestricted and linear
+hypotheses, distinguished by
+appropriate tags, in one context, which is implemented as a discrimination
+tree~\cite{RSV01}.  The discrimination tree allows the
+system to efficiently (i.e.\ without scanning the entire context) check
+whether a given formula is already in the context, and thus whether a
+step is non-trivial. However, it also complicates keeping track of clause
+order.  
+
+As specified in Section~\ref{ssec:bc}, during backchaining the
+system will try predicate clauses, starting from
+the most recently assumed, and working back to the least recent.
+Such behavior, though standard in traditional logic
+programming languages, is too limiting for some natural LolliMon
+programs, such as our $\pi$-calculus encoding or the meta-circular
+interpreter.\footnote{Available with the LolliMon distribution.}  To this
+end, LolliMon has another directive, \texttt{\#{}fair}, which
+declares the programmer's intent to have the clauses of a particular
+predicate chosen fairly, rather than in a fixed order. The
+implementation approximates fairness by trying clauses in a random
+order.
+
+Including the idea of fair choice is important when we want to be
+able to simulate a concurrent system in such a way that any given
+run of the LolliMon program will give us a ``typical'' execution,
+rather than some ``special'' execution.  For example, in the $\pi$-calculus
+interpreter described above, the fair-choice model allows both
+possible outcomes, $P$~and~$Q$, for the process
+$$
+  \nu c.\pout{c}{c} \mid (\pin{c}{x}.P) \mid (\pin{c}{x}.Q),
+$$
+whereas the fixed-order mode
+would
+rule out one or the other of $P$~and~$Q$.
+
+When in the monadic left focusing judgment, any clauses having heads
+of the form $\{S\}$, rather than an atomic predicate, are eligible
+to be selected.  The implementation
+always chooses from among these clauses in a fair way. Only for atomic
+predicates $P$ is the fixed-order mode available.
+
+\section{Examples}
+\label{sec:examples}
+In this section we present three concrete examples of LolliMon
+specifications.  We use \texttt{typewriter} font for LolliMon code.
+All of these examples, and many more, are bundled with the prototype
+distribution of LolliMon.\footnote{\texttt{http://www.cs.cmu.edu/\~{}fp/lollimon/}}
+
+We summarize LolliMon concrete syntax as follows:
+$$
+\begin{array}{r@{{}={}}l@{\qquad}r@{{}={}}l@{\qquad}r@{{}={}}l@{\qquad}r@{{}={}}l}
+\limp & \verb@-o@
+&
+\iimp & \verb@=>@
+&
+\tensor & \verb@,@
+&
+\with & \verb@&@
+\\
+\{\, \} & \verb@{ }@
+&
+\bang & \verb@!@
+&
+\top & \verb@top@
+&
+\one & \verb@one@
+\end{array}
+$$ 
+Additionally we have
+$$
+\begin{array}{r@{\;\;=\;\;}l}
+\lambda x{:}\tau.M
+&
+\verb@x \ M@
+\\
+\forall x{:}\tau.A
+&
+\verb@pi x \ A@
+\\
+\exists x{:}\tau.S
+&
+\verb@sigma x \ S@
+\end{array}
+$$ 
+where \verb@M@, \verb@A@ and \verb@S@ are the concrete representations
+of $M$, $A$ and $S$. The type of bound variables \verb@x@ is
+automatically inferred by the system. This is always possible, since
+all constants are declared and types are restricted to prenex
+polymorphism.  
+
+LolliMon also provides several built-in predicates and terms including
+lists (\verb@nil@  for empty list and \verb@::@ for cons),
+basic integer arithmetic (\verb@is@, \verb@+@, etc.),
+and output (\verb@write@ and \verb@nl@).
+
+We allow clauses of the form \verb"(A, B) -o {C}", which stands
+for \verb"B -o (A -o {C})", and, in a similar manner,
+\verb"(A, B) => {C}", which stands for \verb"B => (A => {C})".
+Because of the subgoal selection strategy,
+both of these will first match \verb"A", then \verb"B", and
+then commit the forward chaining step.
+
+We also use the standard convention that (unbound) uppercase letters
+represent logic variables that are implicitly universally quantified
+at the outermost level.
+
+\subsection{CKY Parsing}
+\label{ssec:cky}
+We present a LolliMon specification of a CKY parser based on
+McAllester's logical algorithm~\cite{Mcallester02jacm}.
+This example only uses the
+unrestricted context and relies upon forward chaining and saturation.
+
+The main predicate is \texttt{parse X I J} which asserts
+that the input substring from position $i$ to position $j$, inclusive, is of
+syntactic category $X$.
+
+Starting from an input list,
+we assert \texttt{s}$\,i\,c$ for each character of input $c$ at
+position $i$.  When the list becomes empty, we initiate a forward
+chaining computation, as indicated by the monad brackets in the first
+clause below.  When the forward chaining computation saturates, we
+test if the whole string (which goes from 1 to $n$) is of category $S$
+and succeed if that is so.
+
+\begin{small}\begin{verbatim}
+  load N nil S <= {parse S 1 N}.
+  load I (C::Cs) S <= 
+    J is I+1, (s J C => load J Cs S).
+
+  start Cs S <= load 0 Cs S.
+\end{verbatim}\end{small}
+
+Grammar productions are in normal form of either
+$X \rightarrow c$ for a character $c$ or
+$X \rightarrow Y\; Z$ for non-terminals $Y$ and $Z$.
+These are represented in the form \texttt{rule X (char C)}
+and \texttt{rule X (jux Y Z)}, respectively.  We
+just run these grammar rules from right to left,
+for example asserting we have an $X$ from $i$ to $k$ if
+we already know that the substring from $i$ to $j$
+is a $Y$ and the substring from $j+1$ to $k$ is a $Z$.
+
+\begin{small}\begin{verbatim}
+  rule X (char C), s I C => {!parse X I I}.
+
+  rule X (jux Y Z), parse Y I J, J' is J+1, 
+    parse Z J' K => {!parse X I K}.
+\end{verbatim}\end{small}
+
+This concludes the parser.  Note that it does
+not use the linear context and relies entirely on
+saturation for termination.
+
+\subsection{Call-by-Name and Futures}
+\label{ssec:mml}
+
+We present a LolliMon implementation of a $\lambda$-calculus with a
+call-by-name semantics, then add futures, a simple construct for
+parallel evaluation~\cite{Halstead85}.  This core can be extended to
+functional languages with features such as recursion, polymorphism,
+mutable reference, continuations, exceptions, concurrency in the style
+of Concurrent ML, and distributed computation.  Some of these can be
+found with the prototype distribution of LolliMon or as sample specifications in
+an earlier report on CLF~\cite{Cervesato02tr}.
+
+Our presentation uses \emph{linear des\-ti\-na\-tion-pass\-ing
+style} \cite{Pfenning04aplas}, which is based on three main syntactic
+categories: \emph{expressions} to be evaluated, \emph{frames} for
+suspended computations, and \emph{destinations} for values.
+
+Destinations are special in that they are just
+abstract names and have no further structure.  They will
+be represented as parameters in our implementation.
+
+Corresponding to the three syntactic categories we have three
+predicates: \texttt{eval} evaluates an expression, given a destination,
+\texttt{comp} captures a suspended computation together with the
+eventual destination of its result, and \texttt{return} records the
+value returned to a destination.
+
+Unlike the usual techniques from (higher-order) logic programming
+languages, these predicates will take on their appropriate operational
+meaning in the \emph{linear context}, and we execute using
+forward chaining with only trivial backward chaining to match atomic
+formulas.  We start with a linear context containing only
+\texttt{eval $e$ $d_0$}
+for an expression $e$ to be evaluated and an initial destination $d_0$
+and reach quiescence in a state with
+\texttt{return $v$ $d_0$}
+for a value $v$.  In this example, values are just expressions, although
+in some examples it is clearer to separate them out in their own
+syntactic class.
+
+As a first simple example, consider call-by-name evaluation.
+We represent expressions using higher-order abstract syntax.
+
+\begin{small}\begin{verbatim}
+  lam : (exp -> exp) -> exp.
+  app : exp -> exp -> exp.
+\end{verbatim}\end{small}
+
+A $\lambda$-abstraction is a value, so we return it directly
+to the given destination $D$.
+
+\begin{small}\begin{verbatim}
+  eval (lam x \ E x) D
+  -o {return (lam x \ E x) D}. 
+\end{verbatim}\end{small}
+\noindent The right-hand side of the linear implication is a monadic formula,
+which enforces that this rule is used only during forward chaining.
+This will be true for all other rules in this implementation,
+except for one at the top level.
+
+An application is evaluated by first evaluating the function,
+while a frame waits for the evaluation's result.
+The result must be passed in a fresh destination $d_1$, which is
+a parameter created by the $\exists_L$ rule.
+
+\begin{small}\begin{verbatim}
+  eval (app E1 E2) D
+  -o {sigma d1 \ eval E1 d1,
+         comp (app1 d1 E2) D}.
+\end{verbatim}\end{small}
+\noindent
+The destination \verb"D" of the new frame is the same as the original
+destination for the application.
+
+Finally, when evaluation of the function is complete, we can
+substitute the argument into the function body and evaluate
+the result.  This substitution is modeled by meta-level application,
+a standard technique with higher-order abstract syntax.
+Here we need to coordinate \emph{two} linear
+assumptions: one returns a value, while the other is the waiting
+frame.
+
+\begin{small}\begin{verbatim}
+  return (lam x \ E1' x) D1,
+  comp (app1 D1 E2) D
+  -o {eval (E1' E2) D}.
+\end{verbatim}\end{small}
+
+This completes the main program.  In order to invoke it
+at the top level, we have a predicate \verb"evaluate"
+which evaluates an expression $e$ and prints its value.
+To print the result we use the built-in predicates \verb"write"
+and \verb"nl", the latter starting a new line.
+
+\begin{small}\begin{verbatim}
+  evaluate E
+    o- (pi d0 \ eval E d0
+           -o {sigma V \ return V d0,
+                  write V, nl}).
+\end{verbatim}\end{small}
+
+A query \verb"evaluate" $e$ now starts with backward chaining (note the
+direction \verb"o-" of the outermost implication), creating the initial
+destination $d_0$ and linear assumption \verb"eval" $e$ $d_0$ before
+entering the monad and initiating forward chaining.  We continue to
+forward chain until we reach quiescence, which is the case precisely
+when we are returning a value to the initial destination, or the Mini-ML
+computation gets stuck.  This cannot happen for a well-typed Mini-ML
+term, but we have elided the necessary
+type-checking predicate here, so it is possible for an \verb"evaluate"
+query to fail.
+
+As a generalization of the above we consider \emph{futures} derived from
+Multilisp~\cite{Halstead85}: the construct \verb"future" $e$ immediately
+returns with a \emph{promise} and starts a new thread evaluating $e$ in
+parallel.  If the promise is ever evaluated (touched) we block until the
+evaluation of $e$ completes, which will give us the value of the
+promise.
+
+The most straightforward implementation in linear destination-passing
+style uses new expression forms \verb"future" $e$ and \verb"promise" $p$ where
+$p$ is a destination.  We also use a new frame \verb"future1" $d_1$ to
+await the completion of the future. 
+Evaluating \verb"future" $e$ then creates two
+new destinations: one, called $d_1$, to stand for the value of 
+$e$ directly, and one, called $p$, to represent the promise.
+
+\begin{small}\begin{verbatim}
+  eval (future E) D
+  -o {sigma d1 \ sigma p \ 
+        eval E d1, comp (future1 d1) p,
+        return (promise p) D}.
+\end{verbatim}\end{small}
+\noindent
+If evaluation of $E$ completes with value $V$, we install $V$
+as the value of the future $p$.  This must occur in
+the unrestricted context: the promise $p$ may actually be
+replicated many times via substitution, or it may never be needed at
+all, violating linearity in both cases.
+
+\begin{small}\begin{verbatim}
+  return V D1,
+  comp (future1 D1) P
+  -o {!return V P}.
+\end{verbatim}\end{small}
+\noindent
+If we ever evaluate (touch) a promise, we create a frame waiting
+for its value.
+
+\begin{small}\begin{verbatim}
+  eval (promise P) D
+  -o {comp (promise1 P) D}.
+\end{verbatim}\end{small}
+\noindent
+Finally, if the value of the promise is both available and needed,
+we pass it to the proper destination.
+
+\begin{small}\begin{verbatim}
+  !return V1 P,
+  comp (promise1 P) D
+  -o {return V1 D}.
+\end{verbatim}\end{small}
+
+Thus, futures can be explained in four rules, without affecting the rules
+for functions and applications previously introduced.  Such semantic
+modularity is a an elegant property of linear destination-passing style,
+and it is immediately reflected in the LolliMon encoding.
+
+\subsection{Checking Graph Bipartiteness}
+\label{ssec:gbc}
+We now present a LolliMon specification of graph bipartiteness
+checking based on the logical algorithms in the formulation
+of Ganzinger and McAllester~\cite{Ganzinger02iclp}.  
+
+A graph is represented by a set of unrestricted assumptions
+\texttt{edge} $u$ $v$ for nodes $u$ and $v$, indicating an edge
+from $u$ to $v$.  We also start with a \emph{linear} assumption
+\texttt{unlabeled} $u$ for every node $u$.  We further have constant
+labels \texttt{a} and \texttt{b} to represent two partitions.
+
+The outer loop of the algorithm picks an arbitrary unlabeled node,
+labels it (arbitrarily) with \texttt{a}, and then propagates
+information by labeling all neighbors of \texttt{a} nodes with
+\texttt{b} and vice versa.  When this propagation saturates, we check if
+there are any nodes labeled both \texttt{a} and \texttt{b}.  If so, the
+graph cannot be bipartite.  If not, we pick another unlabeled node, label
+it with \texttt{a} and repeat the propagation step.  If there are no
+unlabeled nodes left we know the graph is bipartite.
+
+First, the top-level iteration.  In order to cut off unnecessary
+iterations, we check for a node labeled both \texttt{a} and \texttt{b}
+first (note use of the \verb@#ordered@ directive).  So
+\texttt{iterate} succeeds if the graph is \emph{not} bipartite.
+
+\begin{small}\begin{verbatim}
+  #ordered iterate.
+  iterate o- sigma U \
+    !labeled U a, !labeled U b, top.
+  iterate o- sigma U \
+    unlabeled U, (labeled U a => {iterate}).
+\end{verbatim}\end{small}
+
+\noindent By the structure of the second clause,
+the overall computation consists of a variable number of
+stages, each of which is a computation run to saturation.
+Assumptions of the form \texttt{labeled} $u$ are always
+unrestricted,
+indicated by the form \texttt{A => \{B\}} rather than linear
+implication \texttt{A -o \{B\}}.  \texttt{unlabeled} assumptions are
+always linear, so the second line consumes one.  We use
+\texttt{top} in the first clause so we can stop iterating
+even if there are unlabeled nodes left.
+
+The next three rules are for label propagation, including
+one to remove linear assumptions \texttt{unlabeled U} in case
+the node \texttt{U} was labeled during the saturation process.
+
+\begin{small}\begin{verbatim}
+  !labeled U a, !edge U V -o {!labeled V b}.
+  !labeled U b, !edge U V -o {!labeled V a}.
+  !labeled U K, unlabeled U -o {one}.
+\end{verbatim}\end{small}
+
+Finally we have a rule to generate the symmetric closure
+of the initial edge relation, again relying on saturation.
+
+\begin{small}\begin{verbatim}
+  !edge U V -o {!edge V U}.
+\end{verbatim}\end{small}
+
+This completes the implementation.  An interesting aspect of it is the
+use of linearity to avoid explicit deletions.  These are present in
+Ganzinger and McAllester's specification, but have no discernible
+logical justification.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+We have presented a programming language, LolliMon, based on intuitionistic
+linear logic augmented with a monad.  Computation in LolliMon proceeds via proof
+construction.  In the asynchronous fragment (outside the monad),
+computation uses backward chaining and backtracking as in the Lolli
+language~\cite{Hodas94ic}.  In the synchronous fragment (inside the
+monad) computation uses forward chaining and committed choice, which
+allows natural models of concurrency and saturation-based
+algorithms.  The interaction between these strategies is rich,
+yet the monadic structure of the underlying logic keeps it manageable.
+We have presented several examples, and more are provided with the
+implementation.
+
+On the logical side, the first items of future work are to gain a better
+understanding of additive disjunction ($\oplus$) and falsehood
+($\zero$), and to extend the operational semantics to the fully
+dependent type theory CLF~\cite{Watkins02tr}.
+
+On the computational side, we plan to consider issues of fair scheduling
+and the difficulties that arise from free variables during forward
+chaining and, in particular, with respect to saturation.  We also plan to
+give a more thorough analysis of unification and unification
+constraints.
+
+As far as the implementation is concerned, the most pressing need is to
+devise techniques for more efficient forward chaining.
+
+Finally, we are interested in developing analysis tools for LolliMon
+programs, such as mode or termination checkers.  This should be
+particularly interesting for forward chaining, where it may be possible
+to use model checking for state-space exploration to establish temporal
+properties of LolliMon program executions, or to support automatic
+complexity analysis in the style advocated by Ganzinger and
+McAllester~\cite{Ganzinger01ijcar}.
+
+\bibliographystyle{abbrv}
+\bibliography{ppdp05}
+
+\ignore{
+\appendix
+\section{Logical Rules Summary}
+\label{apx:logical-rules-summary}
+
+\begin{figure*}
+Syntax:
+$$
+\begin{array}{lll}
+A & ::= &  P 
+      \mid \top 
+      \mid A_1 \with A_2 
+      \mid \\&& A_1 \limp A_2 
+      \mid A_1 \iimp A_2 
+      \mid \forall x{:}\tau.A  
+      \mid \{ S \} 
+\\[1ex]
+S & ::= &  A
+      \mid \bang A
+      \mid \one 
+      \mid S_1 \tensor S_2 
+      \mid \exists x{:}\tau.S 
+\end{array}
+\qquad
+\begin{array}{lll}
+  \Gamma & ::= & \cdot \mid \Gamma, A \\
+  \Delta & ::= & \cdot \mid \Delta, A \\%[2ex]
+  \Psi   & ::= & \cdot \mid S, \Psi \\
+\end{array}
+$$
+
+Sequent forms:
+$$
+\begin{array}{ll}
+  \CLFRIseq{\Gamma}{\Delta}{A} & \hbox{Right inversion} \\
+  \CLFLFseq{\Gamma}{\Delta}{A}{P} & \hbox{Left focusing} \\
+\end{array}
+\qquad
+\begin{array}{ll}
+  \CLFLseq{\Gamma}{\Delta}{S} & \hbox{Forward chaining} \\
+  \CLFLLFseq{\Gamma}{\Delta}{A}{\{S\}} & \hbox{Monadic left focusing} \\
+  \CLFLIseq{\Gamma}{\Delta}{\Psi}{S} & \hbox{Left inversion} \\
+  \CLFRFseq{\Gamma}{\Delta}{S} & \hbox{Right focusing} \\
+\end{array}
+$$
+
+Rules for backward chaining:
+$$
+\nsrule{\CLFLFseq{\Gamma,A}{\Delta}{A}{P}}
+       {\CLFRIseq{\Gamma,A}{\Delta}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{uhyp}}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFRIseq{\Gamma}{\Delta,A}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{lhyp}}}
+\qquad
+\nsrule{}
+       {\CLFLFseq{\Gamma}{\cdot}{P}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{atm}}}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma,A}{\Delta}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A \iimp B}}
+       {\GRuleName{\CLFsystem}{\iimp_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\cdot}{A}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\iimp B}{P}}
+       {\GRuleName{\CLFsystem}{\iimp_L}}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta,A}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A\limp B}}
+       {\GRuleName{\CLFsystem}{\limp_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta_1}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\Delta_2}{A}}
+       {\CLFLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
+       {\GRuleName{\CLFsystem}{\limp_L}}
+$$
+$$
+\nsrule{}
+       {\CLFRIseq{\Gamma}{\Delta}{\top}}
+       {\GRuleName{\CLFsystem}{\top_R}}
+\qquad
+\hbox{(no $\top_L$ rule)}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{A}
+        \andalso
+        \CLFRIseq{\Gamma}{\Delta}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A\with B}}
+       {\GRuleName{\CLFsystem}{\with_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L1}}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L2}}}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{[a/x]A}}
+       {\CLFRIseq{\Gamma}{\Delta}{\forall x{:}\tau.A}}
+       {\GRuleName{\CLFsystem}{\forall_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
+       {\GRuleName{\CLFsystem}{\forall_L}}
+$$
+$$
+\nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
+       {\CLFRIseq{\Gamma}{\Delta}{\{S\}}}
+       {\GRuleName{\CLFsystem}{\{\}_R}}
+$$
+
+Rules for forward chaining:
+$$
+\nsrule{\CLFLLFseq{\Gamma,A}{\Delta}{A}{S}}
+       {\CLFLseq{\Gamma,A}{\Delta}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{uhyp}'}}
+\qquad
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{A}{S}}
+       {\CLFLseq{\Gamma}{\Delta,A}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{lhyp}'}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{S'}{S}}
+       {\CLFLLFseq{\Gamma}{\Delta}{\{S'\}}{S}}
+       {\GRuleName{\CLFsystem}{\{\}_L}}
+$$
+$$
+\nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\cdot}{S}}
+       {\GRuleName{\CLFsystem}{\rightarrow\rightarrow}}
+\qquad
+\nsrule{\CLFRFseq{\Gamma}{\Delta}{S}}
+       {\CLFLseq{\Gamma}{\Delta}{S}}
+       {\GRuleName{\CLFsystem}{>\!\! >\rightarrow}}
+$$
+\qquad (Modified left rules for asynchronous connectives)
+$$
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\cdot}{A}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\iimp B}{P}}
+       {\GRuleName{\CLFsystem}{\iimp_L}'}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta_1}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\Delta_2}{A}}
+       {\CLFLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
+       {\GRuleName{\CLFsystem}{\limp_L}'}
+\qquad
+\hbox{(no $\top_L'$ rule)}
+$$
+$$
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L1}'}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L2}'}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
+       {\GRuleName{\CLFsystem}{\forall_L}'}
+$$
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\one,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\one_L}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{S_1,S_2,\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{S_1\tensor S_2,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\tensor_L}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{[a/x]S',\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\exists x{:}\tau.S',\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\exists_L}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma,A}{\Delta}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\bang A,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\bang_L}}
+$$
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta,A}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{A,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{async}}}
+$$
+
+Right rules for synchronous formulas:
+
+$$
+\nsrule{}
+       {\CLFRFseq{\Gamma}{\cdot}{\one}}
+       {\GRuleName{\CLFsystem}{\one_R}}
+\qquad
+\nsrule{\CLFRFseq{\Gamma}{\Delta_1}{S_1}
+        \andalso
+        \CLFRFseq{\Gamma}{\Delta_2}{S_2}}
+       {\CLFRFseq{\Gamma}{\Delta_1,\Delta_2}{S_1\tensor S_2}}
+       {\GRuleName{\CLFsystem}{\tensor_R}}
+\qquad
+\nsrule{\CLFRFseq{\Gamma}{\Delta}{[t/x]S}}
+       {\CLFRFseq{\Gamma}{\Delta}{\exists x{:}\tau.S}}
+       {\GRuleName{\CLFsystem}{\exists_R}}
+\qquad
+\nsrule{\CLFRIseq{\Gamma}{\cdot}{A}}
+       {\CLFRFseq{\Gamma}{\cdot}{\bang A}}
+       {\GRuleName{\CLFsystem}{\bang_R}}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{A}}
+       {\CLFRFseq{\Gamma}{\Delta}{A}}
+       {\GRuleName{\CLFsystem}{\Rightarrow>\!\!>}}
+$$
+
+\caption{Summary of LolliMon logical rules}
+\label{fig:logical-rules-summary}
+\end{figure*}
+}
+
+\end{document}

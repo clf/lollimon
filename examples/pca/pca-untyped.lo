@@ -1,0 +1,81 @@
+(*
+   PCA architecture specification
+   Author: Frank Pfenning
+
+   Not to be taken seriously
+   Start top-level in O'Caml with
+     go (False);
+   to circumvent type-checker
+*)
+
+(* facts and rules *)
+derive(says(dept_head, office(mike, d208)), ax1).
+derive(says(registrar, student(jon, mike)), ax2).
+
+derive(says(mike, open(S, O)), r3(D1, D2)) :-
+  derive(says(dept_head, office (mike, O)), D1),
+  derive(says(registrar, student(S, mike)), D2).
+
+run_prover (J, D) :- derive (J, D).
+check_proof (J, D) :- derive (J, D).
+
+(* prover thread *)
+(* no explicit message passing *)
+prove(J, Tid),
+run_prover(J, D),
+write (event(prover, ran_prover)), nl
+ -o {found_proof(D, Tid)}.
+
+(* door *)
+(* broadcast continuously available (= server) *)
+broadcast(d208, door).
+
+send(P, d208, hello, Sid),
+write(event(d208, received_hello)), nl
+ -o {send(d208, P, challenge(says(mike, open(P, d208))), Sid),
+     receive_proof(d208, P, says(mike, open(P, d208)), Sid)}.
+
+receive_proof(d208, P, J, Sid),
+send(P, d208, proof(J, D), Sid),
+check_proof(J, D),
+write (event(d208, received_proof)), nl
+-o {send(d208, P, accept, Sid)}.
+
+(* jon *)
+listen(jon),
+broadcast(Q, door),
+write (event(jon, found_door)), nl
+ -o {sigma sid \
+       send(jon, Q, hello, sid),
+       receive_challenge(jon, Q, sid)}.
+
+receive_challenge(jon, Q, Sid),
+send(Q, jon, challenge(J), Sid),
+write (event(jon, received_challenge)), nl
+ -o {sigma tid \
+       prove(J, tid),
+       send_proof(jon, Q, J, tid, Sid)}.
+
+send_proof(jon, Q, J, Tid, Sid),
+found_proof(D, Tid),
+write (event(jon, created_proof)), nl
+ -o {send(jon, Q, proof(J, D), Sid),
+     finish_session(jon, Sid)}.
+
+finish_session(jon, Sid),
+send(Q, jon, accept, Sid),
+write (event(jon, finished)), nl
+ -o {done}.
+
+(* simulation *)
+simulate o- (listen(jon) -o {done}).
+
+simulate2 o- (listen(jon) -o listen(jon) -o {done, done}).
+
+(* Examples
+
+run_prover (says(mike, open(jon, d208)), D).
+check_proof (says(mike, open(jon, d208)), r3(ax1, ax2)).
+
+simulate.
+*)

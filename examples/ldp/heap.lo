@@ -1,0 +1,195 @@
+(*
+   Heap semantics
+   Author: Frank Pfenning
+
+   small value V ::= loc L | num K | nil
+   large value W ::= lam_big x \ E x | cons_big V1 V2
+   Values returned or substituted are always small (return V D)
+   Heap values are always big (contains L W)
+
+   It would be nice to make the distinction between exp and small value
+   in the types, but some additional coercions or subtyping would be required
+   (or one could use a polymorphism hack...)
+
+   Values are printed, in the end, without sharing
+   Omit parens and write "z" when a pointer is dereferenced
+*)
+exp : type.			(* expressions, including small values *)
+frame : type.			(* frames *)
+cell : type.		        (* heap locations *)
+dest : type.			(* destinations *)
+bigval : type.
+
+eval : exp -> dest -> o.	(* evaluate with destination *)
+comp : frame -> dest -> o.	(* frame with destination *)
+return : exp -> dest -> o.	(* return small value to destination *)
+contains : cell -> bigval -> o. (* cells large value *)
+print : T -> o.                 (* applies to small and large values *)
+
+loc : cell -> exp.
+
+lam : (exp -> exp) -> exp.
+app : exp -> exp -> exp.
+app1 : dest -> exp -> frame.
+app2 : exp -> dest -> frame.
+lam_big : (exp -> exp) -> bigval.
+
+num : int -> exp.
+plus : exp -> exp -> exp.
+plus1 : dest -> exp -> frame.
+plus2 : exp -> dest -> frame.
+minus : exp -> exp -> exp.
+minus1 : dest -> exp -> frame.
+minus2 : exp -> dest -> frame.
+ifz : exp -> exp -> exp -> exp.
+ifz1 : dest -> exp -> exp -> frame.
+
+nil : exp.
+cons : exp -> exp -> exp.
+cons1 : dest -> exp -> frame.
+cons2 : exp -> dest -> frame.
+case : exp -> exp -> (exp -> exp -> exp) -> exp.
+case1 : dest -> exp -> (exp -> exp -> exp) -> frame.
+cons_big : exp -> exp -> bigval.
+
+rec : (exp -> exp) -> exp.
+
+let : exp -> (exp -> exp) -> exp.
+let1 : dest -> (exp -> exp) -> frame.
+
+evaluate : exp -> o.
+
+evaluate E o- (pi d \ eval E d -o {sigma V \ return V d, print V, nl}).
+
+(* locations *)
+eval (loc L) D
+  -o {return (loc L) D}.
+
+(* printing removes sharing *)
+string : type.
+z : string.
+print (loc L)
+  :- contains L W, write z, print W.
+
+(* functions *)
+eval (lam x \ E x) D
+  -o {sigma l \ !contains l (lam_big x \ E x), return (loc l) D}.
+
+eval (app E1 E2) D
+  -o {sigma d1 \ eval E1 d1, comp (app1 d1 E2) D}.
+
+return V1 D1,
+comp (app1 D1 E2) D
+  -o {sigma d2 \ eval E2 d2, comp (app2 V1 d2) D}.
+
+return V2 D2,
+comp (app2 (loc L1) D2) D,
+contains L1 (lam_big x \ E1' x)
+  -o {eval (E1' V2) D}.
+
+print (lam_big x \ E x)
+  :- write (lam_big x \ E x).  (* do not dereference inside lambda *)
+
+(* integers *)
+eval (num K) D
+  -o {return (num K) D}.
+
+eval (plus E1 E2) D
+  -o {sigma d1 \ eval E1 d1, comp (plus1 d1 E2) D}.
+
+return V1 D1,
+comp (plus1 D1 E2) D
+  -o {sigma d2 \ eval E2 d2, comp (plus2 V1 d2) D}.
+
+return (num K2) D2,
+comp (plus2 (num K1) D2) D,
+K is K1 + K2
+  -o {return (num K) D}.
+
+eval (minus E1 E2) D
+  -o {sigma d1 \ eval E1 d1, comp (minus1 d1 E2) D}.
+
+return V1 D1,
+comp (minus1 D1 E2) D
+  -o {sigma d2 \ eval E2 d2, comp (minus2 V1 d2) D}.
+
+return (num K2) D2,
+comp (minus2 (num K1) D2) D,
+K is K1 - K2
+  -o {return (num K) D}.
+
+eval (ifz E1 E2 E3) D
+  -o {sigma d1 \ eval E1 d1, comp (ifz1 d1 E2 E3) D}.
+
+return (num 0) D1,
+comp (ifz1 D1 E2 E3) D
+  -o {eval E2 D}.
+
+return (num K) D1,
+comp (ifz1 D1 E2 E3) D,
+(K > 0 ; 0 > K)
+  -o {eval E3 D}.
+
+print (num K)
+  :- write K.
+
+(* lists *)
+eval nil D
+  -o {return nil D}.
+
+eval (cons E1 E2) D
+  -o {sigma d1 \ eval E1 d1, comp (cons1 d1 E2) D}.
+
+return V1 D1,
+comp (cons1 D1 E2) D
+  -o {sigma d2 \ eval E2 d2, comp (cons2 V1 d2) D}.
+
+return V2 D2,
+comp (cons2 V1 D2) D
+  -o {sigma l \ !contains l (cons_big V1 V2), return (loc l) D}.
+
+eval (case E1 E2 (x \ xs \ E3 x xs)) D
+  -o {sigma d1 \ eval E1 d1, comp (case1 d1 E2 (x \ xs \ E3 x xs)) D}.
+
+return nil D1,
+comp (case1 D1 E2 (x \ xs \ E3 x xs)) D
+  -o {eval E2 D}.
+
+return (loc L1) D1,
+comp (case1 D1 E2 (x \ xs \ E3 x xs)) D,
+contains L1 (cons_big V1 V2)
+  -o {eval (E3 V1 V2) D}. 
+
+print nil :- write nil.
+print (cons_big X Xs) :- write cons, print X, print Xs.
+
+(* recursion, by substitution *)
+eval (rec x \ E x) D
+  -o {eval (E (rec x \ E x)) D}.
+
+(* definitions, by substitution *)
+eval (let E1 x \ E2 x) D
+  -o {sigma d1 \ eval E1 d1, comp (let1 d1 x \ E2 x) D}.
+
+return V1 D1,
+comp (let1 D1 x \ E2 x) D
+  -o {eval (E2 V1) D}.
+
+(* Examples
+evaluate (lam x \ x).
+evaluate (plus (num 1) (num 2)).
+evaluate (let (num 3) (x \ x)).
+evaluate (ifz (num 0) (num 1) (num 2)).
+evaluate (ifz (num 1) (num 1) (num 2)).
+evaluate (app (lam x \ x) (num 0)).
+evaluate (app (rec d \ lam x \ ifz x (num 0) (plus (app d (minus x (num 1))) (num 2)))
+              (num 3)).
+evaluate (let (rec times \ lam x \ lam y \
+                 ifz x (num 0) (plus (app (app times (minus x (num 1))) y) y))
+          times \ app (app times (num 2)) (num 3)).
+evaluate nil.
+evaluate (cons (num 1) nil).
+evaluate (let (rec f \ lam x \
+                 ifz x (nil) (cons x (app f (minus x (num 1)))))
+          f \ app f (num 3)).
+*)

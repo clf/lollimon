@@ -1,0 +1,107 @@
+(*
+   Bellman-Ford algorithm for single source shortest path
+
+   Author: Frank Pfenning
+
+   This version using more forward reasoning.
+   See bellmanford.lo for another version.
+*)
+
+distance : type.
+infinity : distance.
+fin : int -> distance.
+compdist : distance -> int -> distance -> distance -> o.
+
+nat : type.
+zero : nat.
+succ : nat -> nat.
+
+node : type.
+vertex : node -> o.
+edge : nat -> node -> int -> node -> o.
+
+phase : nat -> o.
+loopdetect : o.
+dist : node -> distance -> o.
+
+(* compdist Du C Dv Dv' if min(Du+C, Dv) = Dv' *)
+compdist (infinity) C Dv Dv.
+compdist (fin X) C (infinity) (fin Y)
+<= Y is X + C.
+compdist (fin X) C (fin Y) (fin Y)
+<= Z is X + C, (Z > Y; Z = Y).
+compdist (fin X) C (fin Y) (fin Z)
+<= Z is X + C, Y > Z.
+
+phase N,
+edge N U C V,
+dist U Du,
+dist V Dv,
+!compdist Du C Dv Dv'
+-o {phase N,
+    edge (succ N) U C V,
+    dist U Du,
+    dist V Dv'}.
+
+loopdetect,
+edge N U C V,			(* consume edge here *)
+dist U Du,
+dist V Dv,
+!compdist Du C Dv Dv (* succeed only if Dv was shortest distance already *)
+-o {loopdetect,
+    dist U Du,
+    dist V Dv}.
+
+print : o.
+
+print,
+dist U Du,
+write (dist U Du), nl
+-o {print}.
+
+loop : nat -> nat -> o.
+loop K (succ N) o- (phase K -o {phase K, loop (succ K) N}).
+loop K (zero) o-
+   (loopdetect -o {loopdetect,  (* consumes (edge K U C V) *)
+     (print -o {print})}).      (* consumes (dist U Du) *)
+
+count : nat -> o.
+count N,
+vertex V
+-o {count (succ N),
+    dist V (infinity)}.
+
+init : node -> o.
+init V0 o-
+  vertex V0,
+  (dist V0 (fin 0) -o count zero -o
+   {sigma N \ count N, loop zero N}).
+
+(* Examples *)
+a : node.
+b : node.
+c : node.
+d : node.
+e : node.
+
+(* Successful example *)
+(*
+vertex a -o vertex b -o vertex c -o vertex d -o vertex e -o
+edge zero a 1 b -o
+edge zero a 3 c -o
+edge zero b 1 c -o
+edge zero b 4 c -o
+edge zero c 2 d -o
+edge zero e 1 d -o
+init a.
+*)
+
+(* Example with negative cycle *)
+(*
+X is 0 - 3,
+(vertex a -o vertex b -o vertex c -o
+edge zero a 1 b -o
+edge zero b 1 c -o
+edge zero c X a -o
+init a).
+*)

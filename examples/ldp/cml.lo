@@ -1,0 +1,156 @@
+(***
+  Some of the Cml example from CLF II tech report.
+  Slightly modified by Jeff Polakow.
+***)
+
+exp : type.
+z : exp.
+s : exp -> exp.
+case : exp -> exp -> (exp -> exp) -> exp.
+lam : (exp -> exp) -> exp.
+app : exp -> exp -> exp.
+app' : exp -> exp -> exp.  (* parallel application *)
+delay : exp -> exp.
+force : exp -> exp.
+newref : exp -> exp.
+assign : exp -> exp -> exp.
+deref : exp -> exp.
+
+dest : type.
+thunk : dest -> exp.
+cell : dest -> exp.
+
+eval : exp -> dest -> o.
+return : exp -> dest -> o.
+read : dest -> dest -> o.
+contains : dest -> exp -> o.
+
+(***
+  Eval for nats
+***)
+eval z D -o {return z D}.
+eval (s E) D -o {sigma d1 \ eval E d1 , (pi V \ return V d1 -o {return (s V) D})}.
+eval (case E1 E2 E3) D -o { sigma d1 \ 
+  eval E1 d1 , 
+  ( (return z d1 -o {eval E2 D}) & 
+    (pi V \ return (s V) d1 -o {eval (E3 V) D})
+  )
+}.
+
+(***
+  Eval for lams
+***)
+eval (lam E) D -o {return (lam E) D}.
+eval (app E1 E2) D -o { sigma d1 \
+  eval E1 d1 , ( pi E1' \ 
+  return (lam E1') d1 -o { sigma d2 \ 
+  eval E2 d2 , ( pi E2' \ 
+  return E2' d2 -o {eval (E1' E2') D}
+  )})
+}.
+
+(**  parallel evaluation for application **)
+eval (app' E1 E2) D -o { sigma d1 \ sigma d2 \
+  eval E1 d1 , eval E2 d2 , 
+  (pi E1' \ pi E2' \ return (lam E1') d1 -o return E2' d2 -o {eval (E1' E2') D})
+}.
+
+(***
+  Eval for thunks
+***)
+eval (thunk L) D -o {return (thunk L) D}.
+eval (delay E) D -o {sigma l \ 
+  return (thunk l) D , 
+  @( pi D' \ read l D' -o {sigma d \ 
+    eval E d , 
+    (pi V \ return V d -o {return V D' , !(pi D'' \ read l D'' -o {return V D''})})
+  })
+}.
+eval (force E) D -o {sigma d \ 
+  eval E d , 
+  (pi L \ return (thunk L) d -o {read L D})
+}.
+
+(***
+  Eval for refs
+***)
+eval (cell C) D -o {return (cell C) D}.
+eval (newref E) D -o {sigma d \
+  eval E d , 
+  (pi V \ return V d -o {sigma c \ @contains c V , return (cell c) D})
+}.
+eval (assign E1 E2) D -o {sigma d1 \ 
+  eval E1 d1 , 
+  (pi c \ return (cell c) d1 -o {sigma d2 \
+    eval E2 d2 , 
+   (pi V1 \ pi V2 \ return V2 d2 -o contains c V1 -o {@contains c V2 , return V2 D})
+  })
+}.
+eval (deref E) D -o { sigma d \
+  eval E d , 
+  (pi c \ pi V \ return (cell c) d -o contains c V -o {@contains c V , return V D})
+}.
+
+
+(***
+  Toplevel evaluation predicate
+***)
+evaluate : exp -> exp -> o.
+evaluate E V :- (pi d \ eval E d -o {return V d}).
+
+
+(*** Examples ***)
+
+(**
+This doesn't terminate (but remember to manually clear the context and 
+reload cml.lo after interrupting)...
+
+evaluate (app (lam x \ lam y \ y) (app (lam w \ app w w) (lam w \ app w w))) V.
+**)
+
+#query 1 2 1
+evaluate (app (lam x \ lam y \ force y) 
+              (delay (app (lam w \ app w w) (lam w \ app w w)))) 
+         V.
+
+
+
+#query 1 2 1
+evaluate (app (lam v \ app (app (lam x \ lam y \ s (deref y)) 
+                           (assign v (s (deref v)))) v) 
+              (newref z)) 
+         V.
+
+
+#query 1 2 1
+evaluate (app (lam v \ app (app (lam x \ lam y \ s (deref (force y))) 
+                                (delay (assign v (s (deref v))))) 
+                           (delay v)) 
+              (newref z)) 
+         V.
+
+
+
+(**
+This can evaluate to both (s z) and (s (s z)) 
+because of parallel application semantics.
+**)
+#query 1 2 10
+evaluate (app' (lam v \ app' (app' (lam x \ lam y \ deref v) (assign v (s z))) 
+                           (assign v (s (s z)))
+              ) 
+              (newref z)
+         ) 
+         V,
+V = (s z).
+
+#query 1 2 10
+evaluate (app' (lam v \ app' (app' (lam x \ lam y \ deref v) (assign v (s z))) 
+                           (assign v (s (s z)))
+              ) 
+              (newref z)
+         ) 
+         V,
+V = (s (s z)).
+
+

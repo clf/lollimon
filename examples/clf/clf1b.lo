@@ -1,0 +1,190 @@
+(*
+   Specification of CLF fragment
+   Fragment used in the "opsem" notes dated Oct 1.
+   with several changes.
+
+   This version uses a "pick" token to make sure
+   that expansion is an atomic operation.
+
+   This is not operationally correct for saturation
+*)
+
+error : string -> o.
+error X o- write "Error:", write X, nl, ERROR.
+
+term : type.
+atom : type.
+prop : type.
+
+(* Propositions *)
+atm : atom -> prop.
+implies : prop -> prop -> prop.
+lolli : prop -> prop -> prop.
+with : prop -> prop -> prop.
+topp : prop.
+forall : (term -> prop) -> prop.
+monad : prop -> prop.
+
+tensor : prop -> prop -> prop.
+onep : prop.
+exists : (term -> prop) -> prop.
+bang : prop -> prop.
+plus : prop -> prop -> prop.
+zerop : prop.
+eq : atom -> atom -> prop.
+
+(* Judgments *)
+true : prop -> o.
+hyp : prop -> o.
+lax : prop -> o.
+expand : prop -> o.
+pick : o.  (* token to indicate we have to pick rule for fwd chaining *)
+
+resid : prop -> atom -> prop -> o.
+chain : prop -> prop -> o.
+
+(* true A *)
+true (atm P)
+  o- hyp A,
+     resid A P S,
+     true S.
+true (implies A1 A2)
+  o- (hyp A1 => true A2).
+true (lolli A1 A2)
+  o- (hyp A1 -o true A2).
+true (with A1 A2)
+  o- true A1 & true A2.
+true (topp)
+  o- top.
+true (forall x \ A x)
+  o- (pi x \ true (A x)).
+true (monad S)
+  o- (pick -o {lax S}).
+
+(* true S *)
+true (tensor S1 S2)
+  o- true S1, true S2.
+true (onep).
+true (exists x \ S x)
+  o- true (S T).
+true (bang A)
+  <= true A.
+true (plus S1 S2)
+  o- true S1.
+true (plus S1 S2)
+  o- true S2.
+(* true zerop fails *)
+true (eq P P).
+
+(* avoid interleaving of expansion and chaining via pick token *)
+pick,
+hyp A,
+chain A S
+  -o {expand (tensor S onep)}.
+
+(* expand S *)
+expand (tensor (tensor S11 S12) S2)
+  -o {expand (tensor S11 (tensor S12 S2))}.
+expand (tensor (onep) S2)
+  -o {expand S2}.
+expand (tensor (exists x \ S1 x) S2)
+  -o {sigma x \ expand (tensor (S1 x) S2)}.
+expand (tensor (zerop) S2)
+  -o {zero}.
+expand (tensor (plus S11 S12) S2),
+error "plus in the monad not yet supported" (* raises exception *)
+  -o {expand (tensor S11 S2); expand (tensor S12 S2)}.
+expand (tensor (bang A1) S2)
+  -o {!hyp A1, expand S2}.
+expand (tensor (atm P) S2)
+  -o {hyp (atm P), expand S2}.
+expand (tensor (implies A1 A2) S2)
+  -o {hyp (implies A1 A2), expand S2}.
+expand (tensor (lolli A1 A2) S2)
+  -o {hyp (lolli A1 A2), expand S2}.
+expand (tensor (with A1 A2) S2)
+  -o {hyp (with A1 A2), expand S2}.
+expand (tensor (topp) S2)
+  -o {hyp (topp), expand S2}.
+expand (tensor (forall x \ A1 x) S2)
+  -o {hyp (forall x \ A1 x), expand S2}.
+expand (tensor (monad S1) S2)
+  -o {hyp (monad S1), expand S2}.
+expand (onep)
+  -o {pick}.  (* move back to pick phase *)
+
+(* lax S *)
+(* used only when no more chaining or expansion can be done *)
+lax S
+  o- pick,  (* consume pick token *)
+     true S.
+
+(* Residuation resid +A +P -S *)
+(* Used only for backchaining on atoms *)
+resid (atm P') P (eq P' P).
+resid (implies A1 A2) P (tensor S2 (bang A1)) (* sub-optimal here? *)
+  o- resid A2 P S2.
+resid (lolli A1 A2) P (tensor S2 A1)
+  o- resid A2 P S2.
+resid (with A1 A2) P (plus S1 S2)
+  o- resid A1 P S1,
+     resid A2 P S2.
+resid (topp) P (zerop).
+resid (forall x \ A1 x) P (exists x \ S1 x)
+  o- (pi x \ resid (A1 x) P (S1 x)).
+resid (monad S) P (zerop).
+resid (tensor A1 A2) P S o- error "tensor as program formula".
+resid (onep) P S o- error "one as program formula".
+resid (exists x \ A x) P S o- error "exists as program formula".
+resid (bang A) P S o- error "bang as program formula".
+resid (plus A1 A2) P S o- error "bang as program formula".
+resid (zerop) P S o- error "zero as program formula".
+resid (eq Q1 Q2) P S o- error "eq as program formula".
+
+(* Forward chaining chain +A -S *)
+(* Solves necessary subgoals *)
+(* chain (atm P) fails *)
+chain (implies A1 A2) S
+  o- chain A2 S,
+     !true A1.
+chain (lolli A1 A2) S
+  o- chain A2 S,
+     true A1.
+chain (with A1 A2) S
+  o- chain A1 S.
+chain (with A1 A2) S
+  o- chain A2 S.
+(* chain (topp) fails *)
+chain (forall x \ A x) S
+  o- chain (A T) S.
+chain (monad S) S.
+chain (tensor A1 A2) S o- error "tensor as program formula outside monad".
+chain (onep) S o- error "one as program formula outside monad".
+chain (exists x \ A x) S o- error "exists as program formula outside monad".
+chain (bang A) S o- error "bang as program formula outside monad".
+chain (plus A1 A2) S o- error "bang as program formula outside monad".
+chain (zerop) S o- error "zero as program formula outside monad".
+chain (eq Q1 Q2) S o- error "eq as program formula outside monad".
+
+(* Regression testing queries *)
+#query 1 2 1 pi p \ true (lolli (atm p) (atm p)).
+#query 1 2 1 pi p \ pi q \ true (lolli (with (atm p) (atm q)) (atm p)).
+#query 1 2 1 pi p \ pi q \ true (lolli (with (atm p) (atm q)) (atm q)).
+#query 0 2 1 pi p \ pi q \ pi r \ true (lolli (with (atm p) (atm q)) (atm r)).
+
+#query 1 2 5 pi p \ true (lolli (atm p) (monad (atm p))).
+#query 1 2 1 pi p \ true (implies (atm p) (atm p)).
+#query 1 2 1 pi p \ pi q \ true (implies (atm p) (implies (atm q) (atm p))).
+#query 0 2 1 pi p \ pi q \ true (lolli (atm p) (lolli (atm q) (atm p))).
+
+#query 1 2 5
+pi p \ pi q \ 
+true (lolli (lolli (atm p) (monad (atm q)))
+       (lolli (atm p) (monad (atm q)))).
+
+#query 1 2 1
+pi p \ pi q \
+true (implies (lolli (atm p) (monad zerop))
+              (lolli (atm p) (monad (atm q)))).
+
+

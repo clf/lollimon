@@ -1,0 +1,157 @@
+(*
+   Union-Find algorithm
+
+   Author: Frank Pfenning, Jeff Polakow
+
+   Loosely based on
+   H.Ganzinger and D.McAllester, Logical Algorithms, ICLP'02
+*)
+
+(* 
+   Interface
+
+   singleton X -o {G}    to create a new X (X must be new)
+   union X Y -o {G}      to union X and Y (X and Y must exist), balances & compresses
+   find X V -o {G}       to find root for X, performs path compression
+
+   singleton and union can be asserted in parallel,
+   find must be asserted after singleton and union have saturated
+*)
+
+singleton : T -> o.
+union : T -> T -> o.
+find : T -> T -> o.
+
+(*
+   Internal data structure
+
+   parent X Y   --  X points to parent Y, linear
+   size X S     --  X is root for set of size S, linear
+
+   For each X, there is exactly one of size X S or parent X Y.
+
+   During processing of find X, there will also be an assumption
+   compress Y for any Y on the path from X to the root.
+
+   This has one more rule than Ganzinger & McAllester but
+   performs path compression.  For union of same-sized equivalence
+   classes we choose non-deterministically rather than giving
+   a preference to one argument over the other.
+
+   In this version we do path compression only during find,
+   not during union.
+*)
+
+parent : T -> T -> o.
+size : T -> int -> o.
+
+(* 
+  Helper predicate for union, allows compression during union.
+*)
+union' : T -> T -> T -> o. 
+
+union X Y -o {union' X Y P}.
+
+
+singleton X
+-o {size X 1}.
+
+union' X X P
+-o {one}.
+
+union' X Y P,
+parent X X'
+-o {union' X' Y P, parent X P}.
+
+union' X Y P,
+parent Y Y'
+-o {union' X Y' P, parent Y P}.
+
+union' X Y Y,
+size X S1,
+size Y S2,
+(S2 > S1; S2 = S1),
+S is S1+S2
+-o {parent X Y, size Y S}.
+
+union' X Y X,
+size X S1,
+size Y S2,
+(S1 > S2; S1 = S2),
+S is S1+S2
+-o {parent Y X, size X S}.
+
+(* eager/lazy path compression during find using unification *)
+(* point all nodes on path directly to root *)
+
+find X X,
+size X S
+(*,write (find X X),nl*)
+-o {size X S}.
+
+find X P,
+parent X Y
+(*,write (find X P),nl*)
+-o {find Y P, parent X P}.
+
+
+(* 
+  Collecting the internal state.
+*)
+state : type -> type.
+sz : T -> int -> state T.
+pr : T -> T -> state T.
+collect : list (state T) -> o.
+
+coll : list (state T) -> o.
+#ordered coll. (* coll must be ordered because of affine state *)
+coll (sz X K::S) o- size X K, coll S.
+coll (pr X Y::S) o- parent X Y, coll S.
+coll nil.
+
+collect S o- once (coll S). (* We really only want to do this once. *)
+
+
+(* Parallel Examples *)
+
+#query 1 2 1
+singleton 1 -o {collect S}.
+
+#query 1 2 1
+singleton 1 -o singleton 2 -o {collect S}.
+
+#query 1 1 1
+singleton 1 -o singleton 2 -o singleton 3 -o union 1 3 -o singleton 4 -o
+union 2 4 -o singleton 5 -o union 3 5 -o singleton 6 -o union 6 2 -o
+singleton 7 -o union 1 7 -o {find 7 P -o {find 5 P -o {collect S}}}.
+
+#query 1 1 1
+singleton 1 -o singleton 2 -o singleton 3 -o union 1 3 -o
+{find 1 X1 -o {singleton 4 -o union 2 4 -o
+singleton 5 -o union 3 5 -o {find 5 X5 -o {singleton 6 -o
+union 6 2 -o singleton 7 -o union 1 7 -o {find 4 X4 -o {collect S}}}}}}.
+
+(* Sequential Examples *)
+
+#query 1 1 1
+singleton 1 -o {singleton 2 -o {singleton 3 -o {union 1 3 -o
+{find 1 X1 -o {singleton 4 -o {union 2 4 -o
+{singleton 5 -o {union 3 5 -o {find 5 X5 -o {singleton 6 -o
+{union 6 2 -o {singleton 7 -o {union 1 7 -o
+{find 4 X4 -o {collect S}}}}}}}}}}}}}}}.
+
+(* first query has some non-deterministic root *)
+#query 1 2 1
+singleton 1 -o singleton 2 -o singleton 3 -o singleton 4 -o
+union 3 4 -o union 3 2 -o union 2 1 -o {collect S}.
+
+(** These can be a bit slow **)
+
+(* next query forces 3 or 4 to be root *)
+#query 1 2 10
+singleton 1 -o singleton 2 -o singleton 3 -o singleton 4 -o
+{union 3 4 -o {union 3 2 -o {union 2 1 -o {find 1 3 -o {collect S}}}}}.
+
+#query 1 2 10
+singleton 1 -o singleton 2 -o singleton 3 -o singleton 4 -o
+{union 3 4 -o {union 3 2 -o {union 2 1 -o {find 1 4 -o {collect S}}}}}.

@@ -1,0 +1,1970 @@
+(* Author : Deepak Garg *)
+(* Type system and semantics for a new concurrent language *)
+
+(* Syntax *)
+kind : type.
+pred : type.
+
+sort : type.
+indexterm : type.
+
+atype : type. (* Asynchronous type *)
+stype : type. (* Synchronous type *)
+
+term : type. (* Pure terms *)
+mterm : type. (* Monadic terms *)
+exp : type. (* Expressions *)
+
+(* Kind Constructors *)
+proptype : kind. (* The kind "Type" *)
+kindimp :  sort -> kind -> kind.
+
+(* Type Constructors *)
+typeapp : pred -> indexterm -> pred.
+
+basetype : pred -> atype.
+lolli : atype -> atype -> atype.
+imp : atype -> atype -> atype.
+with : atype -> atype -> atype.
+forall : (indexterm -> atype) -> sort -> atype.
+monad : stype -> atype.
+
+coerceatype : atype -> stype.
+tens : stype -> stype -> stype.
+munit : stype.
+oplus : stype -> stype -> stype.
+bang : atype -> stype.
+recstype : (stype -> stype) -> stype.
+exists : (indexterm -> stype) -> sort -> stype.
+
+(* Index term typing rules. There are no rules because this judgment is external to the language *)
+
+ofsort : indexterm -> sort -> o.
+
+(* Kinding Rules *)
+ofkind : pred -> kind -> o.
+
+ofkind (typeapp P T) K <= 
+	ofsort T Gamma,
+	ofkind P (kindimp Gamma K).
+
+(* Well-formedness for types *)
+
+well_formed_atype : atype -> o.
+well_formed_stype : stype -> o.
+
+well_formed_atype (basetype P) <= ofkind P proptype.
+well_formed_atype (lolli A B) <= well_formed_atype A , well_formed_atype B.
+well_formed_atype (imp A B) <= well_formed_atype A , well_formed_atype B.
+well_formed_atype (with A B) <= well_formed_atype A , well_formed_atype B.
+well_formed_atype (forall (i \ (A i)) Gamma) <= pi i \ ((ofsort i Gamma) => (well_formed_atype (A i))).
+well_formed_atype (monad S) <= well_formed_stype S.
+
+well_formed_stype (coerceatype A) <= well_formed_atype A.
+well_formed_stype (tens S1 S2) <= well_formed_stype S1 , well_formed_stype S2.
+well_formed_stype (munit).
+well_formed_stype (oplus S1 S2) <= well_formed_stype S1 , well_formed_stype S2.
+well_formed_stype (bang A) <= well_formed_atype A.
+well_formed_stype (recstype (alpha \ (S alpha))) <= pi alpha \ ((well_formed_stype alpha) => (well_formed_stype (S alpha))).
+well_formed_stype (exists (i \ (S i)) Gamma) <= pi i \ ((ofsort i Gamma) => (well_formed_stype (S i))).
+
+(* Term Constructors *)
+
+lapp : term -> term -> term.
+labs : (term -> term) -> term.
+app : term -> term -> term.
+abs : (term -> term) -> term.
+pair : term -> term -> term.
+fst : term -> term.
+snd : term -> term.
+univ : (indexterm -> term) -> sort -> term.
+inst : term -> indexterm -> term. 
+(* inst : term -> indexterm -> (term -> term) -> term.  *)
+memb : exp -> term.
+recterm : (term -> term) -> atype -> term.
+
+(* Monadic Term Constructors *)
+
+coerceterm : term -> mterm.
+par : mterm -> mterm -> mterm.
+unit : mterm.
+inl : mterm -> mterm.
+inr : mterm -> mterm.
+replicate : term -> mterm.
+fold : stype -> mterm -> mterm.
+recmterm : (mterm -> mterm) -> stype -> mterm.
+abstract : indexterm -> sort -> mterm -> mterm.
+
+letterm : mterm -> (term -> mterm) -> mterm.
+letunit : mterm -> mterm -> mterm.
+letpar : mterm -> (mterm -> mterm -> mterm) -> mterm.
+letplus : mterm -> (mterm -> mterm) -> (mterm -> mterm) -> mterm.
+letbang : mterm -> (term -> mterm) -> mterm.
+letfold : mterm -> stype -> (mterm -> mterm) -> mterm.
+letexists : mterm -> (indexterm -> mterm -> mterm) -> mterm.
+
+(* Expression Constructors *)
+
+coercemterm : mterm -> exp.
+letmonad : term -> (mterm -> exp) -> exp.
+letparallel : term -> term -> (mterm -> mterm -> exp) -> exp.
+link : exp -> stype -> stype -> exp.
+
+(* Typing Judgments *)
+ofatype : term -> atype -> o.
+ofstype_m : mterm -> stype -> o.
+ofstype_e : exp -> stype -> o.
+
+(* Term Typing Rules *)
+ofatype (lapp N1 N2) (A) o- 
+	ofatype (N1) (lolli A2 A) , 
+	ofatype (N2) (A2).
+
+ofatype (labs (x \ (N x))) (lolli A1 A2) o- 
+	(pi x \ ((ofatype x A1) -o (ofatype (N x) A2))) , 
+	!well_formed_atype A1.
+
+ofatype (app N1 N2) (A) o- 
+	ofatype (N1) (imp A2 A) , 
+	!ofatype (N2) (A2).
+
+ofatype (abs (x \ (N x))) (imp A1 A2) o- 
+	(pi x \ ((ofatype x A1) => (ofatype (N x) A2))) ,
+	!well_formed_atype A1.
+
+ofatype (pair N1 N2) (with A1 A2) o- 
+	(ofatype N1 A1) & (ofatype N2 A2).
+
+ofatype (fst N) (A) o-
+	(ofatype N (with A A2)) , 
+	!well_formed_atype A2.
+
+ofatype (snd N) (A) o-
+	(ofatype N (with A1 A)) , 
+	!well_formed_atype A1.
+
+ofatype (univ (i \ (N i)) Gamma) (forall (j \ (A j)) Gamma) o-
+	(pi k \ ((ofsort k Gamma) => (ofatype (N k) (A k)))).
+
+
+ofatype (inst N I) (A I)  o-
+	ofsort (I) (Gamma),
+	ofatype N (forall (A) Gamma).
+
+
+(*
+ofatype (inst N1 I (x \ N x)) B  o-
+	!ofsort (I) (Gamma),
+	ofatype (N1) (forall (i \ A i) Gamma),
+	pi x \ (ofatype x (A I) -o ofatype (N x) B).
+*)
+
+ofatype (memb E) (monad S) o-
+	ofstype_e E S.
+
+ofatype (recterm (x \ (N x)) A) A o-
+	!(pi x \ ((ofatype x A) => (ofatype (N x) A))).
+
+has_atype : term -> atype -> o.
+
+has_atype N A o- 
+	ofatype N A , 
+	!well_formed_atype A.
+
+(* Monadic Term typing rules *)
+
+ofstype_m (coerceterm N) (coerceatype A) o-
+	ofatype N A.
+
+ofstype_m (par M1 M2) (tens S1 S2) o-
+	ofstype_m M1 S1 ,
+	ofstype_m M2 S2.
+
+ofstype_m unit munit.
+
+ofstype_m (inl M) (oplus S1 S2) o-
+	ofstype_m M S1, 
+	!(well_formed_stype S2).
+
+ofstype_m (inr M) (oplus S1 S2) o-
+	ofstype_m M S2, 
+	!(well_formed_stype S1).
+
+ofstype_m (replicate N) (bang A) o-
+	!ofatype N A.
+
+ofstype_m (fold (recstype (alpha \ (S alpha))) M) (recstype (alpha \ (S alpha))) o-
+	ofstype_m M (S (recstype alpha \ (S alpha))) .
+
+ofstype_m (recmterm (u \ (M u)) S) S o-
+	!(pi u \ ((ofstype_m u S) => (ofstype_m (M u) S))).
+
+ofstype_m (abstract T Gamma M) (exists (i \ (S i)) Gamma) o-
+	ofsort T Gamma,
+	ofstype_m M (S T).
+
+ofstype_m (letunit M M1) S o-
+	ofstype_m M munit,
+	ofstype_m M1 S.
+
+ofstype_m (letterm M (x \ (M1 x))) S o-
+	ofstype_m M (coerceatype A),
+	pi x \ (ofatype x A -o ofstype_m (M1 x) S),
+	!well_formed_atype A.
+
+ofstype_m (letpar M (u \ v \ (M1 u v))) S o-
+	ofstype_m M (tens S1 S2),
+	pi u \ pi v \ (ofstype_m u S1 -o ofstype_m v S2 -o ofstype_m (M1 u v) S),
+	!well_formed_stype S1,
+	!well_formed_stype S2.
+
+ofstype_m (letplus M (u \ (M1 u)) (v \ (M2 v))) S o-
+	ofstype_m M (oplus S1 S2),
+	( pi u \ (ofstype_m u S1 -o ofstype_m (M1 u) S) & 
+		pi v \ (ofstype_m v S2 -o ofstype_m (M2 v) S)
+	),
+	!well_formed_stype S1,
+	!well_formed_stype S2.
+
+ofstype_m (letbang M (x \ (M1 x))) S o-
+	ofstype_m M (bang A),
+	pi x \ (ofatype x A => ofstype_m (M1 x) S),
+	!well_formed_atype A.
+
+ofstype_m (letfold M (recstype (alpha \ (S1 alpha))) (u \ (M1 u))) S o-
+	ofstype_m M (recstype (alpha \ (S1 alpha))),
+	pi u \ ((ofstype_m u (S1 (recstype (alpha \ (S1 alpha))))) -o (ofstype_m (M1 u) S)),
+	!well_formed_stype (recstype (alpha \ (S1 alpha))).
+
+ofstype_m (letexists M (i \ u \ (M1 i u))) S o-
+	ofstype_m M (exists (i \ (S1 i)) Gamma),
+	pi i \ pi u \ ((ofsort i Gamma) => (ofstype_m u (S1 i)) -o (ofstype_m (M1 i u) S)),
+	!well_formed_stype (exists (i \ (S1 i)) Gamma).
+
+(* Expression typing rules *)
+
+ofstype_e (coercemterm M) S o-
+	ofstype_m M S.
+
+ofstype_e (letmonad N (u \ (E u))) S o-
+	ofatype N (monad S1),
+	pi u \ ((ofstype_m u S1) -o (ofstype_e (E u) S)),
+	!well_formed_stype S1.
+
+ofstype_e (letparallel N1 N2 (u \ v \ E u v)) S o-
+	ofatype N1 (monad S1),
+	ofatype N2 (monad S2),
+	pi u \ pi v \ ((ofstype_m u S1) -o (ofstype_m v S2) -o (ofstype_e (E u v) S)).
+
+ofstype_e (link E S S1) S1 o-
+	!well_formed_stype S1,
+	ofstype_e E S.
+
+(* Big Step Operational Semantics *)
+
+evaln : term -> term -> o.
+evalm : mterm -> mterm -> o.
+evale : exp -> exp -> o.
+
+(* evaln +N -V *)
+evaln (labs (x \ N x)) (labs (x \ N x)).
+evaln (abs (x \ N x)) (abs (x \ N x)).
+evaln (pair N1 N2) (pair N1 N2).
+evaln (univ (i \ N i) Gamma) (univ (i \ N i) Gamma).
+evaln (memb E) (memb E).
+
+evaln (lapp N1 N2) V o-
+	evaln N1 (labs (x \ N x)),
+	evaln N2 V2,
+	evaln (N V2) V.
+
+evaln (app N1 N2) V o-
+	evaln N1 (abs (x \ N x)),
+	evaln N2 V2,
+	evaln (N V2) V.
+
+evaln (fst N) V o-
+	evaln N (pair N1 N2),
+	evaln N1 V.
+
+evaln (snd N) V o-
+	evaln N (pair N1 N2),
+	evaln N2 V.
+
+evaln (inst N I) V o-
+	evaln N (univ (i \ N1 i) Gamma),
+	evaln (N1 I) V.
+
+(*
+recs : term.
+evaln (recterm (x \ N x) A) V o-
+	evaln (N recs) V.
+*)
+
+
+evaln (recterm (x \ N x) A) V o-
+	evaln (N (recterm (x \ N x) A)) V.
+
+
+(* evalm +M -Mv *)
+
+evalm (coerceterm N) (coerceterm V) o-
+	evaln N V.
+
+evalm (par M1 M2) (par Mv1 Mv2) o-
+	evalm M1 Mv1,
+	evalm M2 Mv2.
+
+evalm unit unit.
+
+evalm (inl M) (inl Mv) o-
+	evalm M Mv.
+
+evalm (inr M) (inr Mv) o-
+	evalm M Mv.
+
+evalm (replicate N) (replicate V) o-
+	evaln N V.
+
+evalm (fold S M) (fold S Mv) o-
+	evalm M Mv.
+
+evalm (recmterm (u \ M u) S) Mv o-
+	evalm (M (recmterm (u \ M u) S)) Mv.
+
+evalm (abstract I Gamma M) (abstract I Gamma Mv) o-
+	evalm M Mv.
+	
+evalm (letterm M1 (x \ M x)) Mv o-
+	evalm M1 (coerceterm V),
+	evalm (M V) Mv.
+
+evalm (letunit M1 M) Mv o-
+	evalm M1 unit,
+	evalm M Mv.
+
+evalm (letpar M1 (u \ v \ M u v)) Mv o-
+	evalm M1 (par M2 M3),
+	evalm (M M2 M3) Mv.
+
+evalm (letplus M1 (u \ M2 u) (v \ M3 v)) Mv o-
+	evalm M1 (inl Mv1),
+	evalm (M2 Mv1) Mv.
+
+evalm (letplus M1 (u \ M2 u) (v \ M3 v)) Mv o-
+	evalm M1 (inr Mv1),
+	evalm (M3 Mv1) Mv.
+
+evalm (letbang M1 (x \ M x)) Mv o-
+	evalm M1 (replicate V),
+	evalm (M V) Mv.
+
+evalm (letfold M1 S (u \ M u)) Mv o-
+	evalm M1 (fold S Mv1),
+	evalm (M Mv1) Mv.
+
+evalm (letexists M1 (i \ u \ M i u)) Mv o-
+	evalm M1 (abstract I Gamma Mv1),
+	evalm (M I Mv1) Mv.
+
+(* evale +E -Ev *)
+(* Ev ::= coercemterm (Mv) *)
+
+
+evale (coercemterm M) (coercemterm Mv) o-
+	evalm M Mv.
+
+evale (letmonad N (u \ E u)) Ev o-
+	evaln N (memb E1),
+	evale E1 (coercemterm Mv1),
+	evale (E Mv1) Ev.
+
+evaln_comp : term -> term -> o.
+
+evale (letparallel N1 N2 (u \ v \ E u v)) Ev o-
+	write 3,
+	(
+		(write 1 -o evale E11 Ev1 -o evaln N1 (memb E11) -o {evaln_comp N1 (memb Ev1)}) -o
+		(write 2 -o evale E22 Ev2 -o evaln N2 (memb E22) -o {evaln_comp N2 (memb Ev2)}) -o
+			{evaln_comp N1 (memb (coercemterm Mv1)), evaln_comp N2 (memb (coercemterm Mv2))}
+	),
+	evale (E Mv1 Mv2) Ev, write 4.
+
+(* link semantics *)
+
+marker : type. (* Markers distinguish different nested CHAM configurations *)
+ascripn : marker -> term -> atype -> o. 	(* N : A *)
+ascripm : marker -> mterm -> stype -> o.	(* M # S *)
+ascripe : marker -> exp -> stype -> o.		(* E \div S *)
+
+(* Restrict linking to target atomic types or unrestricted atomic types only.  Important because all other types mean something to the CHAM *)
+(* Needed to make CHAM rules applicable in one direction only *)
+
+(* Each CHAM has its own marker which is created using the constructor pi. It creates a fresh parameter each time *)
+
+evale (link E S (coerceatype (basetype P))) (coercemterm (coerceterm V)) o-
+	(pi m \ ascripe m E S -o {ascripn m (V) (basetype P)}).
+
+evale (link E S (bang (basetype P))) (coercemterm (replicate V)) o-
+	(pi m \ ascripe m E S -o {!ascripn m V (basetype P)}).
+
+evale (link E S munit) (coercemterm unit) o- 
+	(pi m \ ascripe m E S -o {one}).
+
+(* Structural Rules *)
+write "\n" -o write "tens\n" -o write "\n" -o write S2 -o write "\n" -o write S1 -o write "\n" -o write Mv2 -o write "\n" -o write Mv1 -o write "\n" -o write Mk -o ascripm Mk (par Mv1 Mv2) (tens S1 S2) -o {ascripm Mk Mv1 S1, ascripm Mk Mv2 S2}.
+write "\n" -o write "unit\n"  -o write "\n" -o write Mk -o ascripm Mk unit munit -o {one}.
+write "\n" -o write "inl\n" -o write "\n" -o write S1 -o write "\n" -o write Mv -o write "\n" -o write Mk -o ascripm Mk (inl Mv) (oplus S1 S2) -o {ascripm Mk Mv S1}.
+write "\n" -o write "inr\n" -o write "\n" -o write S2 -o write "\n" -o write Mv -o write "\n" -o write Mk -o ascripm Mk (inr Mv) (oplus S1 S2) -o {ascripm Mk Mv S2}.
+write "\n" -o write "fold\n" -o write "\n" -o write (S1 (recstype alpha \ (S1 alpha))) -o write "\n" -o write Mv -o write "\n" -o write Mk -o ascripm Mk (fold S Mv) (recstype (alpha \ (S1 alpha))) -o {ascripm Mk Mv (S1 (recstype alpha \ (S1 alpha)))}.
+write "\n" -o write "exists\n" -o write "\n" -o write Mv -o write "\n" -o write S -o write "\n" -o write Mk -o ascripm Mk (abstract I Gamma Mv) (exists ( i \ S i) G) -o {sigma i \ ((!ofsort i Gamma), ascripm Mk Mv (S i))}.
+write "\n" -o write "bang\n" -o write "\n" -o write A -o write "\n" -o write V -o write "\n" -o write Mk -o evaln N V -o ascripm Mk (replicate N) (bang A) -o {!ascripn Mk V A}.
+write "\n" -o write "m->n \n" -o write "\n" -o write A -o write "\n" -o write V -o write "\n" -o write Mk -o ascripm Mk (coerceterm V) (coerceatype A) -o {ascripn Mk V A}.
+write "\n" -o write "e->m \n" -o write "\n" -o write S -o write "\n" -o write Mv -o write "\n" -o write Mk -o ascripe Mk (coercemterm Mv) S -o {ascripm Mk Mv S}.
+
+notvaluen : term -> o.
+notvaluem : mterm -> o.
+notvaluee : exp -> o.
+
+notvaluen (lapp N1 N2).
+notvaluen (app N1 N2).
+notvaluen (fst N).
+notvaluen (snd N).
+notvaluen (inst N I).
+notvaluen (recterm (x \ N x) A).
+
+notvaluem (coerceterm N) o- notvaluen N.
+notvaluem (par M1 M2) o- notvaluem M1.
+notvaluem (par M1 M2) o- notvaluem M2.
+notvaluem (inl M) o- notvaluem M.
+notvaluem (inr M) o- notvaluem M.
+notvaluem (replicate N) o- notvaluen N.
+notvaluem (fold S M) o- notvaluem M.
+notvaluem (recmterm (u \ M u) S).
+notvaluem (abstract I Gamma M) o- notvaluem M.
+notvaluem (letterm M (x \ M1 x)).
+notvaluem (letunit M1 M2).
+notvaluem (letpar M (u \ v \ M1 u v)).
+notvaluem (letplus M (u \ M1 u) (v \ M2 v)).
+notvaluem (letbang M (x \ M1 x)).
+notvaluem (letfold M S (u \ M1 u)).
+notvaluem (letexists M (i \ u \ M1 u i)).
+
+notvaluee (coercemterm M) o- notvaluem M.
+notvaluee (letmonad N (u \ E u)).
+notvaluee (letparallel N1 N2 (u \ v \ E u v)).
+notvaluee (link E S1 S).
+
+
+(* Functional Rules *)
+write "\n" -o write "evaln\n" -o write "\n" -o write V -o write "\n" -o write N -o write "\n" -o write Mk -o evaln N V -o notvaluen N -o write "Entering evaln\n" -o ascripn Mk N A -o {ascripn Mk V A}.
+write "\n" -o write "evalm\n" -o write "\n" -o write Mv -o write "\n" -o write M -o write "\n" -o write Mk -o evalm M Mv -o notvaluem M -o write "Entering evalm\n" -o ascripm Mk M S -o {ascripm Mk Mv S}.
+write "\n" -o write "evale\n" -o write "\n" -o write Ev -o write "\n" -o write Mk -o write "Exited evale\t" -o evale E Ev -o write "\n" -o write E -o write "\n" -o write Mk -o write "Entering evale\t" -o notvaluee E -o ascripe Mk E S -o {ascripe Mk Ev S}.
+
+(* Reaction rules *)
+
+(* reactaux_focus, ==>_A in the report *)
+(* reactaux, -->_A in the report *)
+reactaux_focus : marker -> term -> atype -> term -> atype -> o.
+reactaux : marker -> term -> atype -> o.
+
+reactaux_focus Mk N (basetype P) N (basetype P).
+
+reactaux_focus Mk N (forall (i \ (A i)) Gamma) No B o-
+	!ofsort T Gamma o-
+	reactaux_focus Mk (inst N T) (A T) No B.
+
+reactaux_focus Mk N (with A1 A2) No B o-
+	reactaux_focus Mk (fst N) A1 No B.
+
+reactaux_focus Mk N (with A1 A2) No B o-
+	reactaux_focus Mk (snd N) A2 No B.
+
+reactaux_focus Mk N2 (lolli A1 A2) No B o-
+	reactaux Mk N1 A1 o-
+	reactaux_focus Mk (lapp N2 N1) A2 No B.
+
+reactaux_focus Mk N2 (imp A1 A2) No B o-
+	!reactaux Mk N1 A1 o-
+	reactaux_focus Mk (app N2 N1) A2 No B.
+
+reactaux Mk No B o- 
+	ascripn Mk N A o-
+	reactaux_focus Mk N A No B.
+
+(* react_focus, ==> in the report *)
+
+react_focus : marker -> term -> atype -> term -> atype -> o.
+
+react_focus Mk N (monad S) N (monad S).
+
+react_focus Mk N (forall (i \ (A i)) Gamma) No B o-
+	!ofsort T Gamma o-
+	react_focus Mk (inst N T) (A T) No B.
+
+react_focus Mk N (with A1 A2) No B o-
+	react_focus Mk (fst N) A1 No B.
+
+react_focus Mk N (with A1 A2) No B o-
+	react_focus Mk (snd N) A2 No B.
+
+react_focus Mk N2 (lolli A1 A2) No B o-
+	reactaux Mk N1 A1 o-
+	react_focus Mk (lapp N2 N1) A2 No B.
+
+react_focus Mk N2 (imp A1 A2) No B o-
+	!reactaux Mk N1 A1 o-
+	react_focus Mk (app N2 N1) A2 No B.
+
+(* react, --> in the report *)
+(* This rule is flat, it has no judgement *)
+
+write "\n" -o write "react\n" -o write "\n" -o write No -o write "\n" -o write N -o write "\n" -o write Mk -o react_focus Mk N A No B -o write "Entering react\n" -o ascripn Mk N A -o {ascripn Mk No B}.
+write "\n" -o write "react-monad\n" -o write "\n" -o write S -o write "\n" -o write E -o write "\n" -o write Mk -o ascripn Mk (memb E) (monad S) -o {ascripe Mk E S}.
+
+(* ------------------- General Constructs -----------------------------------------*)
+
+(* ------------------- Presberger maths and booleans ----------------------------*)
+
+nat : pred.
+ofkind nat proptype.
+zero : term.
+succ : term -> term.
+ofatype zero (basetype nat).
+ofatype (succ N) (basetype nat) o- ofatype (N) (basetype nat).
+notvaluen (succ N) o- notvaluen N.
+
+evaln zero zero.
+evaln (succ N) (succ V) o- evaln N V.
+
+add : term -> term -> term -> o.
+plus : term.
+ofatype plus (lolli (basetype nat) (lolli (basetype nat) (basetype nat))).
+evaln (lapp (lapp plus N1) N2) V o-
+	evaln N1 V1,
+	evaln N2 V2,
+	add V1 V2 V.
+
+add zero V V.
+add (succ V1) V2 (succ V) o-
+	add V1 V2 V.
+	
+sub : term -> term -> term -> o.
+prev : term -> term -> o.
+
+minus : term.
+ofatype minus (lolli (basetype nat) (lolli (basetype nat) (basetype nat))).
+evaln (lapp (lapp minus  N1)  N2) V o-
+	evaln N1 V1,
+	evaln N2 V2,
+	sub V1 V2 V.
+
+prev (succ V) V.
+sub V zero V.
+sub zero V zero.
+sub V1 (succ V2) V o-
+	sub V1 V2 V3,
+	prev V3 V.
+
+bool : pred.
+ofkind bool proptype.
+
+true : term.
+false : term.
+ofatype true (basetype bool).
+ofatype false (basetype bool).
+evaln true true.
+evaln false false.
+
+eq : term -> term -> o.
+
+equal : term.
+ofatype equal (lolli (basetype nat) (lolli (basetype nat) (basetype bool))).
+evaln (lapp (lapp equal N) M) true o- 
+	evaln N V1 o- evaln M V2 o- eq V1 V2.
+evaln (lapp (lapp equal N) M) false.
+
+eq N N.
+
+
+(* --------- Conditional if-then-else for terms, mterms and exps ------------ *)
+
+ifterm : term -> term -> term -> term.
+ofatype (ifterm N1 N2 N3) A o-
+	ofatype N1 (basetype bool) o-
+	( ofatype N2 A &
+	ofatype N3 A).
+evaln (ifterm B N1 N2) V o-
+	evaln B true o-
+	evaln N1 V.
+evaln (ifterm B N1 N2) V o- 
+	evaln B false o-
+	evaln N2 V.
+
+notvaluen (ifterm B N2 N3).
+
+ifmterm : term -> mterm -> mterm -> mterm.
+ofstype_m (ifmterm N1 M2 M3) S o-
+	ofatype N1 (basetype bool),
+	( ofstype_m M2 S &
+	ofstype_m M3 S).
+
+evalm (ifmterm B M1 M2) Mv o-
+	evaln B true o-
+	evalm M1 Mv.
+evalm (ifmterm B M1 M2) Mv o- 
+	evaln B false o-
+	evalm M2 Mv.
+
+notvaluem (ifmterm B M2 M3).
+
+ifexp : term -> exp -> exp -> exp.
+ofstype_e (ifexp N1 E2 E3) S o-
+	ofatype N1 (basetype bool),
+	( ofstype_e E2 S &
+	ofstype_e E3 S).
+
+evale (ifexp B E1 E2) Ev o-
+	evaln B true o-
+	evale E1 Ev.
+evale (ifexp B E1 E2) Ev o- 
+	evaln B false o-
+	evale E2 Mv.
+
+notvaluee (ifexp B E2 E3).
+
+
+(* ------------------ Channels ------------- *)
+
+chan : sort.
+
+(* ------------ Queues --------------- *)
+
+
+queue : pred.
+ofkind queue (kindimp chan proptype).
+
+typeslist : list term -> o.
+typeslist nil.
+typeslist (X::L) o-
+	!ofatype X (basetype nat) o-
+	typeslist L.
+	
+makequeue : indexterm -> list term -> term.
+ofatype (makequeue K L) (basetype (typeapp queue K)) o-
+	!ofsort K chan o-
+	typeslist L.
+
+(* (makequeue I L) is a value for any indexterm I and any term list L *)
+evaln (makequeue I L) (makequeue I L).
+
+push : term.
+ofatype push (forall (i \ lolli (basetype (typeapp queue i)) (imp (basetype nat) (basetype (typeapp queue i)))) chan).
+evaln (app (lapp (inst push I) Q) N) (makequeue I (V1 :: L)) o-
+	evaln Q (makequeue I1 L) o-
+	evaln N V1.
+
+empty : term.
+ofatype empty (forall ( i \ basetype (typeapp queue i)) chan).
+evaln (inst empty I) (makequeue I nil).
+
+lastelem : list term -> term -> list term -> o.
+lastelem (X::nil) X nil.
+lastelem (X::L) Y (X::L1) o-
+	lastelem L Y L1.
+	
+pop : term.
+ofatype pop (forall ( i \ (lolli (basetype (typeapp queue i)) (monad (tens (bang (basetype nat)) (coerceatype (basetype (typeapp queue i))))))) chan).
+
+evaln (lapp (inst pop I) Q) (memb (coercemterm (par (replicate X) (coerceterm (makequeue I L1))))) o-
+	evaln Q (makequeue I1 L) o-
+	lastelem L X L1.
+
+emptylist : list term -> o.
+notemptylist : list term -> o.
+emptylist nil.
+notemptylist (X::L).
+
+checkempty : term.
+ofatype checkempty (forall ( i \ (lolli (basetype (typeapp queue i)) (monad (tens (bang (basetype bool)) (coerceatype (basetype (typeapp queue i))))))) chan).
+
+evaln (lapp (inst checkempty I) Q) (memb (coercemterm (par (replicate true) (coerceterm (makequeue I L))))) o-
+	evaln Q (makequeue I1 L) o-
+	emptylist L.
+
+evaln (lapp (inst checkempty I) Q) (memb (coercemterm (par (replicate false) (coerceterm (makequeue I L))))) o-
+	evaln Q (makequeue I1 L) o-
+	notemptylist L.
+
+destroy : term.
+ofatype destroy (forall (i \ (lolli (basetype (typeapp queue i)) (monad munit))) chan).
+evaln (lapp (inst destroy K) Q) (memb (coercemterm unit)) o-
+	evaln Q (makequeue I L).
+
+(* ------------ Defined priv construct -------------- *)
+(* Typechecks *)
+
+c_chan : indexterm.
+ofsort c_chan chan.
+
+priv : (indexterm -> mterm) -> sort -> mterm.
+
+ofstype_m (priv (k \ M k) Gamma) (exists (i \ S i) Gamma) o-
+	pi k \ ((ofsort k Gamma) => (ofstype_m (M k) (S k))).
+
+
+evalm (priv (k \ M k) chan) Mv o-
+	evalm (abstract c_chan chan (M c_chan)) Mv.
+
+(* evalm (priv (k \ M k) chan) (abstract c_chan chan (M c_chan)). *)
+
+notvaluem (priv (i \ M i) Gamma).
+
+(* -------------- Asynchronous send ----------------- *)
+(* typechecks *)
+asyncsend : indexterm -> term -> mterm -> mterm.
+
+ofstype_m (asyncsend K N M) (coerceatype (lolli (basetype (typeapp queue K)) (monad (tens (coerceatype (basetype (typeapp queue K))) S)))) o-
+	!ofsort K chan o-
+	!ofatype N (basetype nat) o-
+	ofstype_m M S.
+
+evalm (asyncsend K N M) 
+			(coerceterm (
+				labs (q \
+					memb (coercemterm ( par (coerceterm (app (lapp (inst push K ) q) N)) M ))
+				)
+			)).	
+
+check_asyncsend : o.
+ 
+check_asyncsend  <= pi k \ pi n \ pi m \ pi s \ 
+		(ofsort k chan) => (ofatype n (basetype nat)) => (ofstype_m m s) -o
+			ofstype_m
+			( coerceterm (
+				labs (q \
+					memb (coercemterm ( par (coerceterm (app (lapp (inst push k ) q) n)) m ))
+				)
+			)) (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) s)))).
+
+notvaluem (asyncsend I N M).
+
+(* -------------------------------------- Asynchronous Receive ----------------------------------------- *)
+(* Typechecks *)
+(* A bug in the implementation in the report was discovered using this type-checker *)
+
+asyncrecv : indexterm -> (term -> mterm) -> stype -> mterm.
+
+ofstype_m (asyncrecv K (x \ M x) S) 
+	(recstype (alpha \ coerceatype(lolli (basetype (typeapp queue K)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue K)))) (coerceatype (monad(tens S (coerceatype (basetype (typeapp queue K)))))))))))  o-
+		!ofsort K chan o-
+		!(pi x \ (ofatype x (basetype nat)) => ofstype_m (M x) S).
+
+evalm (asyncrecv K (x \ M x) S) Mv o-
+evalm (recmterm (u \ 
+		fold (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue K)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue K)))) (coerceatype (monad(tens S (coerceatype (basetype (typeapp queue K)))))))))))
+			(coerceterm (labs (q \ 
+				memb(
+				letmonad (lapp (inst checkempty K ) q) 
+					(u1 \ coercemterm (letpar u1 (b1 \ q1 \ letbang b1 (b \ 
+						ifmterm (b) (inl (par u q1)) 
+						(inr (letterm q1 (q1 \ coerceterm(
+							memb(
+							letmonad (lapp (inst pop K ) q1)
+							(u2 \ coercemterm (letpar u2 (x1 \ q2 \ (letbang x1 (x \
+								(par (M x) q2)
+							)))))
+							)
+						))))
+					))))
+				)
+			)))
+	) (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue K)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue K)))) (coerceatype (monad(tens S (coerceatype (basetype (typeapp queue K)))))))))))) Mv.
+
+(* Note : the mterm returned by the above evalm definition is not a monadic value, but that is alright because in the CHAM, multiple evaluations can occur.
+*)
+
+check_asyncrecv : o.
+
+check_asyncrecv <= pi k \ pi m \ pi s \  
+(well_formed_stype s => ofsort k chan => (pi x \ (ofatype x (basetype nat) => ofstype_m (m x) s)) =>
+ofstype_m (recmterm (u \ 
+		fold (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens s (coerceatype (basetype (typeapp queue k)))))))))))
+			(coerceterm (labs (q \ 
+				memb(
+				letmonad (lapp (inst checkempty k ) q) 
+					(u1 \ coercemterm (letpar u1 (b1 \ q1 \ letbang b1 (b \ 
+						ifmterm (b) (inl (par u q1)) 
+						(inr (letterm q1 (q1 \ coerceterm(
+							memb(
+							letmonad (lapp (inst pop k ) q1)
+							(u2 \ coercemterm (letpar u2 (x1 \ q2 \ (letbang x1 (x \
+								(par (m x) q2)
+							)))))
+							)
+						))))
+					))))
+				)
+			)))
+	) (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens s (coerceatype (basetype (typeapp queue k)))))))))))) 
+(recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens s (coerceatype (basetype (typeapp queue k))))))))))) 
+).
+
+notvaluem (asyncrecv I (x \ M x) S).
+
+(* ---------------------------- destroyasyncchan ---------------------------- *)
+
+destroyasyncchan : indexterm -> mterm -> mterm.
+
+ofstype_m (destroyasyncchan K M) (coerceatype (lolli (basetype (typeapp queue K)) (monad S))) o-
+	!ofsort K chan o-
+	ofstype_m M S.
+
+evalm (destroyasyncchan K M) 
+	(coerceterm (labs q \ (memb (letmonad (lapp (inst destroy K) q) (u \ (coercemterm (letunit u M))))))).
+
+check_destroyasyncchan : o.
+
+check_destroyasyncchan o-
+	pi k \ pi m \ pi s \ 
+		ofsort k chan =>
+		ofstype_m m s -o
+		ofstype_m (coerceterm (labs q \ (memb (letmonad (lapp (inst destroy k) q) (u \ (coercemterm (letunit u m)))))))
+			(coerceatype (lolli (basetype (typeapp queue k)) (monad s))).
+
+notvaluem (destroyasyncchan I M).
+
+
+(* ------------------------------------- Synchronous send ------------------------------------------- *)
+(* typechecks *)
+
+data : pred.
+ofkind data (kindimp chan proptype).
+
+makedata : indexterm -> term -> term.
+ofatype (makedata I N) (basetype (typeapp data I)) o-
+	!ofsort I chan o-
+	ofatype N (basetype nat).
+evaln (makedata I N) (makedata I V) o-
+	evaln N V.
+
+notvaluen (makedata I N) o- notvaluen N.
+
+getdata : term.
+ofatype getdata (forall (i \ (lolli (basetype (typeapp data i)) (basetype nat))) chan).
+
+evaln (lapp (inst getdata I) N) V o-
+	evaln N (makedata I1 V).
+
+out1 : pred.
+ofkind out1 (kindimp chan (kindimp chan proptype)).
+
+carrier1 : indexterm -> indexterm -> term. (* carrier1 is called c1 in the report *)
+ofatype (carrier1 X Y) (basetype (typeapp (typeapp out1 X) Y)) o-
+	!ofsort X chan o-
+	!ofsort Y chan.
+
+evaln (carrier1 K M) (carrier1 K M).
+
+destruct1 : term.
+ofatype destruct1 (forall (x \ (forall (y \ lolli (basetype (typeapp (typeapp out1 x) y)) (monad munit)) chan)) chan).
+
+evaln (lapp (inst (inst destruct1 K) M) N) (memb (coercemterm unit)) o-
+	evaln N (carrier1 L R).
+
+syncsend : indexterm -> term -> mterm -> mterm.
+
+ofstype_m (syncsend K N M) (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 K) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) S))) chan)))) chan) o-
+	!ofsort K chan o-
+	ofatype N (basetype nat) o-
+	ofstype_m M S.
+
+evalm (syncsend K N M) 
+	(priv (u \ 
+		(par (coerceterm (carrier1 K u))
+			(coerceterm (univ (v \ labs (c \ memb (
+				letmonad (lapp (inst (inst destruct1 u) v) c) (u1 \
+					coercemterm (letunit u1 (par (coerceterm (makedata v N)) M))
+				)
+			))) chan))
+		)
+	) chan).
+
+notvaluem (syncsend K N M).
+
+check_syncsend : o.
+
+check_syncsend o- pi k \ pi n \ pi m \ pi s \
+	ofsort k chan => ofatype n (basetype nat) -o ofstype_m m s -o
+	ofstype_m
+	(priv (u \ 
+		(par (coerceterm (carrier1 k u))
+			(coerceterm (univ (v \ labs (c \ memb (
+				letmonad (lapp (inst (inst destruct1 u) v) c) (u1 \
+					coercemterm (letunit u1 (par (coerceterm (makedata v n)) m))
+				)
+			))) chan))
+		)
+	) chan)
+	(exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) s))) chan)))) chan).
+	
+(* -------------------------------------- Synchronous Receive ----------------------------------------- *)
+(* typechecks *)
+
+syncrecv : indexterm -> (term -> mterm) -> mterm.
+
+ofstype_m (syncrecv K M) (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 K) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad S))))))) chan))) chan) o-
+	!ofsort K chan o-
+	(pi x \ ofatype x (basetype nat) -o ofstype_m (M x) S).
+
+evalm (syncrecv K (x \ M x))
+	(priv (v \ 
+		(coerceterm (univ (u \ labs (c \ memb (
+			letmonad (lapp (inst (inst destruct1 K) u) c) (u1 \
+				coercemterm (letunit u1
+					(par (coerceterm (carrier1 u v))
+						(coerceterm (labs y1 \ memb (
+							coercemterm (letterm (coerceterm (lapp (inst getdata v) y1)) (y \ (M y)))
+						)))
+					)
+				)
+			)
+		))) chan))
+	) chan).
+
+notvaluem (syncrecv K (x \ M x)).
+
+check_syncrecv : o.
+
+check_syncrecv o- pi k \ pi m \ pi s \
+	ofsort k chan => (pi x \ ofatype x (basetype nat) -o ofstype_m (m x) s) -o
+	ofstype_m
+	(priv (v \ 
+		(coerceterm (univ (u \ labs (c \ memb (
+			letmonad (lapp (inst (inst destruct1 k) u) c) (u1 \
+				coercemterm (letunit u1
+					(par (coerceterm (carrier1 u v))
+						(coerceterm (labs y1 \ memb (
+							coercemterm (letterm (coerceterm (lapp (inst getdata v) y1)) (y \ (m y)))
+						)))
+					)
+				)
+			)
+		))) chan))
+	) chan)
+	(exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad s))))))) chan))) chan).
+
+(* ----------------------- Synchronous send-send choice ---------------------------- *)
+(* Typechecks *)
+
+syncchoicess : indexterm -> term -> mterm -> indexterm -> term -> mterm -> mterm.
+
+ofstype_m (syncchoicess K1 N1 M1 K2 N2 M2) (exists (u1 \ exists (u2 \ (tens (coerceatype (with (basetype (typeapp (typeapp out1 K1) u1)) (basetype (typeapp (typeapp out1 K2) u2)))) (coerceatype (with (forall (v1 \ lolli (basetype (typeapp (typeapp out1 u1) v1)) (monad (tens (coerceatype (basetype (typeapp data v1))) S1))) chan) (forall (v2 \ lolli (basetype (typeapp (typeapp out1 u2) v2)) (monad (tens (coerceatype (basetype (typeapp data v2))) S2))) chan))))) chan) chan) o-
+	!ofsort K1 chan o-
+	!ofsort K2 chan o-
+	(ofatype N1 (basetype nat) & ofatype N2 (basetype nat)) o-
+	(ofstype_m M1 S1 & ofstype_m M2 S2).
+
+evalm (syncchoicess K1 N1 M1 K2 N2 M2)
+	(priv (u1 \ 
+	(priv (u2 \ 
+		(par (coerceterm (pair (carrier1 K1 u1) (carrier1 K2 u2)))
+			(coerceterm (pair
+				(univ (v1 \ labs (c \ memb (
+					letmonad (lapp (inst (inst destruct1 u1) v1) c) (unitvar1 \
+						coercemterm (letunit unitvar1 (par (coerceterm (makedata v1 N1)) M1))
+					)
+				))) chan)
+				(univ (v2 \ labs (c \ memb (
+					letmonad (lapp (inst (inst destruct1 u2) v2) c) (unitvar2 \
+						coercemterm (letunit unitvar2 (par (coerceterm (makedata v2 N2)) M2))
+					)
+				))) chan)
+			))
+		)
+	) chan)
+	) chan).
+
+notvaluem (syncchoicess K1 N1 M1 K2 N2 M2).
+
+check_syncchoicess : o.
+
+check_syncchoicess o-
+	pi k1 \ pi n1 \ pi m1 \ pi k2 \ pi n2 \ pi m2 \ pi s1 \ pi s2 \
+	ofsort k1 chan =>
+	ofsort k2 chan =>
+	(ofatype n1 (basetype nat) & ofatype n2 (basetype nat)) -o
+	(ofstype_m m1 s1 & ofstype_m m2 s2) -o
+	ofstype_m
+	(priv (u1 \ 
+	(priv (u2 \ 
+		(par (coerceterm (pair (carrier1 k1 u1) (carrier1 k2 u2)))
+			(coerceterm (pair
+				(univ (v1 \ labs (c \ memb (
+					letmonad (lapp (inst (inst destruct1 u1) v1) c) (unitvar1 \
+						coercemterm (letunit unitvar1 (par (coerceterm (makedata v1 n1)) m1))
+					)
+				))) chan)
+				(univ (v2 \ labs (c \ memb (
+					letmonad (lapp (inst (inst destruct1 u2) v2) c) (unitvar2 \
+						coercemterm (letunit unitvar2 (par (coerceterm (makedata v2 n2)) m2))
+					)
+				))) chan)
+			))
+		)
+	) chan)
+	) chan)
+	(exists (u1 \ exists (u2 \ (tens (coerceatype (with (basetype (typeapp (typeapp out1 k1) u1)) (basetype (typeapp (typeapp out1 k2) u2)))) (coerceatype (with (forall (v1 \ lolli (basetype (typeapp (typeapp out1 u1) v1)) (monad (tens (coerceatype (basetype (typeapp data v1))) s1))) chan) (forall (v2 \ lolli (basetype (typeapp (typeapp out1 u2) v2)) (monad (tens (coerceatype (basetype (typeapp data v2))) s2))) chan))))) chan) chan).
+	
+(* ----------------------- Synchronous receive-receive choice ------------------------- *)
+(* typechecks *)
+
+syncchoicerr : indexterm -> (term -> mterm) -> indexterm -> (term -> mterm) -> mterm.
+
+ofstype_m (syncchoicerr K1 (x \ M1 x) K2 (x \ M2 x))
+	(exists (v1 \ exists (v2 \ (coerceatype (with (forall ( u1 \ (lolli (basetype (typeapp (typeapp out1 K1) u1)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u1) v1))) (coerceatype (lolli (basetype (typeapp data v1)) (monad S1))))))) chan) (forall ( u2 \ (lolli (basetype (typeapp (typeapp out1 K2) u2)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u2) v2))) (coerceatype (lolli (basetype (typeapp data v2)) (monad S2))))))) chan)))) chan) chan) o-
+	!ofsort K1 chan o-
+	!ofsort K2 chan o-
+	((pi x \ ofatype x (basetype nat) -o ofstype_m (M1 x) S1) &
+		(pi x \ ofatype x (basetype nat) -o ofstype_m (M2 x) S2)
+	).
+
+evalm (syncchoicerr K1 (x \ M1 x) K2 (x \ M2 x))
+	(priv (v1 \ 
+	(priv (v2 \ 
+		(coerceterm (pair
+			(univ (u1 \ labs (c \ memb (
+				letmonad (lapp (inst (inst destruct1 K1) u1) c) (unitvar1 \
+					coercemterm (letunit unitvar1
+						(par (coerceterm (carrier1 u1 v1))
+							(coerceterm (labs y1 \ memb (
+								coercemterm (letterm (coerceterm (lapp (inst getdata v1) y1)) (y \ (M1 y)))
+							)))
+						)
+					)
+				)
+			))) chan)
+			(univ (u2 \ labs (c \ memb (
+				letmonad (lapp (inst (inst destruct1 K2) u2) c) (unitvar2 \
+					coercemterm (letunit unitvar2
+						(par (coerceterm (carrier1 u2 v2))
+							(coerceterm (labs y1 \ memb (
+								coercemterm (letterm (coerceterm (lapp (inst getdata v2) y1)) (y \ (M2 y)))
+							)))
+						)
+					)
+				)
+			))) chan)
+		))
+	) chan)
+	) chan).
+
+notvaluem (syncchoicerr K1 (x \ M1 x) K2 (x \ M2 x)).
+
+check_syncchoicerr : o.
+
+check_syncchoicerr o-
+	pi k1 \ pi m1 \ pi k2 \ pi m2 \ pi s1 \ pi s2 \
+	ofsort k1 chan =>
+	ofsort k2 chan =>
+	((pi x \ ofatype x (basetype nat) -o ofstype_m (m1 x) s1) & 
+	(pi x \ ofatype x (basetype nat) -o ofstype_m (m2 x) s2)) -o
+	ofstype_m
+	(priv (v1 \ 
+	(priv (v2 \ 
+		(coerceterm (pair
+			(univ (u1 \ labs (c \ memb (
+				letmonad (lapp (inst (inst destruct1 k1) u1) c) (unitvar1 \
+					coercemterm (letunit unitvar1
+						(par (coerceterm (carrier1 u1 v1))
+							(coerceterm (labs y1 \ memb (
+								coercemterm (letterm (coerceterm (lapp (inst getdata v1) y1)) (y \ (m1 y)))
+							)))
+						)
+					)
+				)
+			))) chan)
+			(univ (u2 \ labs (c \ memb (
+				letmonad (lapp (inst (inst destruct1 k2) u2) c) (unitvar2 \
+					coercemterm (letunit unitvar2
+						(par (coerceterm (carrier1 u2 v2))
+							(coerceterm (labs y1 \ memb (
+								coercemterm (letterm (coerceterm (lapp (inst getdata v2) y1)) (y \ (m2 y)))
+							)))
+						)
+					)
+				)
+			))) chan)
+		))
+	) chan)
+	) chan)
+	(exists (v1 \ exists (v2 \ (coerceatype (with (forall ( u1 \ (lolli (basetype (typeapp (typeapp out1 k1) u1)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u1) v1))) (coerceatype (lolli (basetype (typeapp data v1)) (monad s1))))))) chan) (forall ( u2 \ (lolli (basetype (typeapp (typeapp out1 k2) u2)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u2) v2))) (coerceatype (lolli (basetype (typeapp data v2)) (monad s2))))))) chan)))) chan) chan).
+	
+(* ----------------------- Synchronous Send-receive choice ----------------------------- *)
+(* typechecks *)
+(* The implementation is slightly different from the report because I could not represent the typing rule accurately *)
+
+out0 : pred.
+ofkind out0 (kindimp chan proptype).
+
+carrier0 : indexterm -> term. (* carrier0 is called c0 in the report *)
+ofatype (carrier0 X) (basetype (typeapp out0 X)) o-
+	!ofsort X chan.
+
+evaln (carrier0 K) (carrier0 K).
+
+destruct0 : term.
+ofatype destruct0 (forall (x \ lolli (basetype (typeapp out0 x)) (monad munit)) chan).
+
+evaln (lapp (inst destruct0 K) N) (memb (coercemterm unit)) o-
+	evaln N (carrier0 L).
+
+syncchoicers : indexterm -> (term -> mterm) -> indexterm -> term -> mterm -> mterm.
+
+ofstype_m (syncchoicers K1 (x \ (M1 x)) K2 N2 M2) (exists (v1 \ exists (u2 \ exists (w1 \ tens (coerceatype (with (basetype (typeapp out0 w1)) (basetype (typeapp (typeapp out1 K2) u2)))) (coerceatype (with (lolli (basetype (typeapp out0 w1)) (forall (u1 \ lolli (basetype (typeapp (typeapp out1 K1) u1)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u1) v1))) (coerceatype (lolli (basetype (typeapp data v1)) (monad S1)))))) chan)) (forall (v2 \ lolli (basetype (typeapp (typeapp out1 u2) v2)) (monad (tens (coerceatype (basetype (typeapp data v2))) S2))) chan)))) chan) chan) chan) o-
+	!ofsort K1 chan o-
+	!ofsort K2 chan o-
+	((ofatype N2 (basetype nat), ofstype_m M2 S2) & 
+		(pi x \ ofatype x (basetype nat) -o ofstype_m (M1 x) S1)
+	).
+
+evalm (syncchoicers K1 (x \ M1 x) K2 N2 M2)
+	(priv (v1 \ 
+	(priv (u2 \
+	(priv (w1 \
+		(par (coerceterm (pair (carrier0 w1) (carrier1 K2 u2)))
+			(coerceterm (pair
+				(labs csig \ (univ (u1 \ labs (c \ memb (
+					letmonad (lapp (inst (inst destruct1 K1) u1) c) (unitvar1 \
+					letmonad (lapp (inst destruct0 w1) csig) (unitvar2 \
+						coercemterm (letunit unitvar1 (letunit unitvar2
+							(par (coerceterm (carrier1 u1 v1))
+								(coerceterm (labs y1 \ memb (
+									coercemterm (letterm (coerceterm (lapp (inst getdata v1) y1)) (y \ (M1 y)))
+								)))
+							)
+						))
+					)
+					)
+				))) chan))
+				(univ (v2 \ labs (c \ memb (
+					letmonad (lapp (inst (inst destruct1 u2) v2) c) (u1 \
+						coercemterm (letunit u1 (par (coerceterm (makedata v2 N2)) M2))
+					)
+				))) chan)
+			))
+		)
+	) chan)
+	) chan)
+	) chan).
+
+notvaluem (syncchoicers K1 (x \ M1 x) K2 N2 M2).
+
+check_syncchoicers : o.
+
+(* This check is slightly different, in that we check that we assume that n2 : nat in an unrestricted environment. The reason is that the system does not allow an assumption of the form ((ofstype_m m2 s2 , ofatype n2 (basetype nat)) & (pi x \ ofatype x (basetype nat) -o ofstype_m (m1 x) s1)) 
+*)
+
+check_syncchoicers o-
+	pi k1 \ pi m1 \ pi k2 \ pi n2 \ pi m2 \ pi s1 \ pi s2 \
+	ofsort k1 chan =>
+	ofsort k2 chan =>
+	ofatype n2 (basetype nat) =>
+	(
+		ofstype_m m2 s2
+		& (pi x \ ofatype x (basetype nat) -o ofstype_m (m1 x) s1)
+	) -o
+	ofstype_m
+	(priv (v1 \ 
+	(priv (u2 \
+	(priv (w1 \
+		(par (coerceterm (pair (carrier0 w1) (carrier1 k2 u2)))
+			(coerceterm (pair
+				(labs csig \ (univ (u1 \ labs (c \ memb (
+					letmonad (lapp (inst (inst destruct1 k1) u1) c) (unitvar1 \
+					letmonad (lapp (inst destruct0 w1) csig) (unitvar2 \
+						coercemterm (letunit unitvar1 (letunit unitvar2
+							(par (coerceterm (carrier1 u1 v1))
+								(coerceterm (labs y1 \ memb (
+									coercemterm (letterm (coerceterm (lapp (inst getdata v1) y1)) (y \ (m1 y)))
+								)))
+							)
+						))
+					)
+					)
+				))) chan))
+				(univ (v2 \ labs (c \ memb (
+					letmonad (lapp (inst (inst destruct1 u2) v2) c) (u1 \
+						coercemterm (letunit u1 (par (coerceterm (makedata v2 n2)) m2))
+					)
+				))) chan)
+			))
+		)
+	) chan)
+	) chan)
+	) chan)
+	(exists (v1 \ exists (u2 \ exists (w1 \ tens (coerceatype (with (basetype (typeapp out0 w1)) (basetype (typeapp (typeapp out1 k2) u2)))) (coerceatype (with (lolli (basetype (typeapp out0 w1)) (forall (u1 \ lolli (basetype (typeapp (typeapp out1 k1) u1)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u1) v1))) (coerceatype (lolli (basetype (typeapp data v1)) (monad s1)))))) chan)) (forall (v2 \ lolli (basetype (typeapp (typeapp out1 u2) v2)) (monad (tens (coerceatype (basetype (typeapp data v2))) s2))) chan)))) chan) chan) chan).
+
+(* ---------------------------- Examples ------------------------------------ *)
+
+(* --------------------- Parallel Fibonacci numbers ------------------------------ *)
+(* Uses no refinement - Typechecks and executes *)
+
+
+infer_fib : atype -> o.
+
+infer_fib A <= 
+	has_atype 
+	(recterm (f \ (abs (n \
+	ifterm (lapp (lapp equal n) zero)
+		(memb (coercemterm (replicate (succ zero))))
+		(ifterm (lapp (lapp equal n) (succ zero))
+			 (memb (coercemterm (replicate (succ zero))))
+			 (memb 
+			 	(	letparallel (app f (lapp (lapp minus n) (succ zero))) (app f (lapp (lapp minus n) (succ (succ zero)))) 
+					(u1 \ u2 \
+					coercemterm
+					(
+						letbang u1 (x1 \
+						letbang u2 (x2 \
+							replicate (lapp (lapp plus x1) x2)
+						))
+					)
+					)
+				)
+			)
+		)
+	))) 
+	(imp (basetype nat) (monad (bang (basetype nat)))) ) A.
+
+eval_fib1 : term -> term -> o.
+
+eval_fib1 N V o-
+!ofatype N (basetype nat),
+evaln (app 
+	(recterm (f \ (abs (n \
+	ifterm (lapp (lapp equal n) zero)
+		(memb (coercemterm (replicate (succ zero))))
+		(ifterm (lapp (lapp equal n) (succ zero))
+			 (memb (coercemterm (replicate (succ zero))))
+			 (memb 
+			 	(	letparallel (app f (lapp (lapp minus n) (succ zero))) (app f (lapp (lapp minus n) (succ (succ zero)))) 
+					(u1 \ u2 \
+					coercemterm
+					(
+						letbang u1 (x1 \
+						letbang u2 (x2 \
+							replicate (lapp (lapp plus x1) x2)
+						))
+					)
+					)
+				)
+			)
+		)
+	))) 
+	(imp (basetype nat) (monad (bang (basetype nat)))) ) N) 
+	V.
+
+eval_fib : term -> exp -> o.
+
+eval_fib N Ev o-
+	eval_fib1 N V,
+	evale (letmonad V (m \ (coercemterm m))) Ev. 
+
+(* -------------------------------- Concurrent fib, " fibc' " ------------------------------ *)
+(* Typechecks and works *)
+
+barnat : pred.
+ofkind barnat (kindimp chan proptype).
+
+refineint : indexterm -> term -> term.
+fetchint : term.
+(* ofatype refineint (forall (i \ (lolli (basetype nat) (basetype (typeapp barnat i)))) chan). *)
+ofatype (refineint I N) (basetype (typeapp barnat I)) o-
+	!ofsort I chan o-
+	!ofatype N (basetype nat).
+
+ofatype fetchint (forall (i \ (lolli (basetype (typeapp barnat i)) (basetype nat))) chan).
+
+(* evaln (lapp (inst refineint I) N) (lapp (inst refineint I) V) o-
+	evaln N V.
+*)
+evaln (refineint I N) (refineint I V) o-
+	evaln N V.
+
+(*
+evaln (lapp (inst fetchint I) N) V o-
+	evaln N (lapp (inst refineint I) V).
+*)
+evaln (lapp (inst fetchint I) N) V o-
+	evaln N (refineint K V).
+
+notvaluen (refineint I N) o- notvaluen N.
+
+infer_fibc : o.
+
+infer_fibc o-
+	has_atype 
+	(recterm (f \ (univ (k \ (abs (n \
+	ifterm (lapp (lapp equal n) zero)
+		(memb (coercemterm (replicate (refineint k (succ zero)))))
+		(ifterm (lapp (lapp equal n) (succ zero))
+			(memb (coercemterm (replicate (refineint k (succ zero)))))
+			(memb 
+				(link 
+					(coercemterm
+					(priv (k1 \
+					(priv (k2 \
+					(par (coerceterm (app (inst f k1) (lapp (lapp minus n) (succ zero))))
+					(par (coerceterm (app (inst f k2) (lapp (lapp minus n) (succ (succ zero)))))
+						(coerceterm (abs n1 \ abs n2 \ memb (coercemterm (replicate
+							(refineint k
+								(lapp (lapp plus (lapp (inst fetchint k1) n1)) (lapp (inst fetchint k2) n2))
+							)
+						))))
+					)
+					)
+					) chan)
+					) chan)
+					)
+					(exists (k1 \ (exists (k2 \ 
+					(tens (coerceatype (monad (bang (basetype (typeapp barnat k1)))))
+					(tens (coerceatype (monad (bang (basetype (typeapp barnat k2)))))
+						(coerceatype (imp (basetype (typeapp barnat k1)) (imp (basetype (typeapp barnat k2)) (monad (bang (basetype (typeapp barnat k)))))))
+					)
+					)
+					) chan)) chan)
+					(bang (basetype (typeapp barnat k)))
+				)
+			)
+		)
+	))) chan)) (forall (k \ (imp (basetype nat) (monad (bang (basetype (typeapp barnat k)))))) chan)
+	) 
+	(forall (k \ (imp (basetype nat) (monad (bang (basetype (typeapp barnat k)))))) chan).
+
+
+eval_fibc1 : indexterm -> term -> term -> o.
+
+eval_fibc1 K N V o-
+!ofatype N (basetype nat),
+!ofsort K chan,
+evaln (app
+	(inst
+	(recterm (f \ (univ (k \ (abs (n \
+	ifterm (lapp (lapp equal n) zero)
+		(memb (coercemterm (replicate (refineint k (succ zero)))))
+		(ifterm (lapp (lapp equal n) (succ zero))
+			(memb (coercemterm (replicate (refineint k (succ zero)))))
+			(memb 
+				(link 
+					(coercemterm
+					(priv (k1 \
+					(priv (k2 \
+					(par (coerceterm (app (inst f k1) (lapp (lapp minus n) (succ zero))))
+					(par (coerceterm (app (inst f k2) (lapp (lapp minus n) (succ (succ zero)))))
+						(coerceterm (abs n1 \ abs n2 \ memb (coercemterm (replicate
+							(refineint k
+								(lapp (lapp plus (lapp (inst fetchint k1) n1)) (lapp (inst fetchint k2) n2))
+							)
+						))))
+					)
+					)
+					) chan)
+					) chan)
+					)
+					(exists (k1 \ (exists (k2 \ 
+					(tens (coerceatype (monad (bang (basetype (typeapp barnat k1)))))
+					(tens (coerceatype (monad (bang (basetype (typeapp barnat k2)))))
+						(coerceatype (imp (basetype (typeapp barnat k1)) (imp (basetype (typeapp barnat k2)) (monad (bang (basetype (typeapp barnat k)))))))
+					)
+					)
+					) chan)) chan)
+					(bang (basetype (typeapp barnat k)))
+				)
+			)
+		)
+	))) chan)) (forall (k \ (imp (basetype nat) (monad (bang (basetype (typeapp barnat k)))))) chan)
+	) K) N) 
+	V.
+
+eval_fibc : indexterm -> term -> exp -> o.
+eval_fibc K N Ev o-
+	eval_fibc1 K N V,
+	evale (letmonad V (m \ (coercemterm m))) Ev. 
+
+k : indexterm.
+ofsort k chan.
+
+
+(* --------------------------A pi-calculus example---------------------------------- *)
+
+(* First program that uses only linear resources in the CHAM *)
+
+(* Executes ( \bar{a} b + \bar{a} c ) | (a (x) . print x) using translation of the pi-calculus *)
+(* Type checks and executes. Seems deterministic because linking is based on backwards search, which is deterministic. By flipping order of declarations, b : indexterm and c : indexterm, one obtains different outputs
+*)
+
+printindex : term.
+ofatype printindex (forall ( i \ monad (munit)) chan).
+
+evaln (inst printindex I) (memb (coercemterm unit)) o-
+	write "PRINT: \t" o- write I o- write "\n".
+
+run_simple_pi : exp -> o.
+a : indexterm.
+b : indexterm.
+c : indexterm.
+
+ofsort a chan.
+ofsort c chan.
+ofsort b chan.
+
+type_simple_pi : o.
+
+type_simple_pi o-
+	ofstype_e 
+	(link 
+		(coercemterm (
+			par (coerceterm (pair (carrier1 a b) (carrier1 a c)))
+				(coerceterm (univ (k \ labs y \ memb (
+					letmonad (lapp (inst (inst destruct1 a) k) y) (u \
+					letmonad (inst printindex k) (v \
+						(coercemterm 
+							(letunit u (letunit v unit))
+						)
+					))
+				)) chan))
+		))
+		(tens (coerceatype (with (basetype (typeapp (typeapp out1 a) b)) (basetype (typeapp (typeapp out1 a) c))))
+			(coerceatype (forall (k \ (lolli (basetype (typeapp (typeapp out1 a) k)) (monad munit))) chan))
+		)
+		(munit)
+	)
+	(munit).
+
+run_simple_pi Ev o-
+	evale 
+	(link 
+		(coercemterm (
+			par (coerceterm (pair (carrier1 a b) (carrier1 a c)))
+				(coerceterm (univ (k \ labs y \ memb (
+					letmonad (lapp (inst (inst destruct1 a) k) y) (u \
+					letmonad (inst printindex k) (v \
+						(coercemterm 
+							(letunit u (letunit v unit))
+						)
+					))
+				)) chan))
+		))
+		(tens (coerceatype (with (basetype (typeapp (typeapp out1 a) b)) (basetype (typeapp (typeapp out1 a) c))))
+			(coerceatype (forall (k \ (lolli (basetype (typeapp (typeapp out1 a) k)) (monad munit))) chan))
+		)
+		(munit)
+	)
+	Ev.
+
+(* ---------------------------- Producer-Example using asyncsend -------------------------------- *)
+
+(* Implementation and test for the function integersupto in the report *)
+(* Typechecks and works *)
+(* This test also shows that asyncsend works *)
+
+endofData : term. 	(* endofData is called END in the report *)
+ofatype endofData (basetype nat).
+evaln endofData endofData.
+
+check_integersupto : o.
+check_integersupto o-
+	ofatype
+	(univ (k \ abs n \ app
+		(recterm (l \ (abs (m \ (memb (coercemterm ( 
+			fold (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha)))))))))
+				(ifmterm (lapp (lapp equal (succ n)) m)
+					(asyncsend k endofData (inl unit))
+					(asyncsend k m (inr (coerceterm (app l (succ m)))))
+				)
+		))))))
+			(imp (basetype nat) (monad (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha)))))))))))
+		)
+		(succ zero)
+	) chan)
+	(forall (k \ imp (basetype nat) (monad (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha))))))))))) chan).
+
+integersupto : term.
+ofatype integersupto (forall (k \ imp (basetype nat) (monad (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha))))))))))) chan).
+
+evaln integersupto (univ (k \ abs n \ app
+		(recterm (l \ (abs (m \ (memb (coercemterm ( 
+			fold (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha)))))))))
+				(ifmterm (lapp (lapp equal (succ n))  m)
+					(asyncsend k endofData (inl unit))
+					(asyncsend k m (inr (coerceterm (app l (succ m)))))
+				)
+		))))))
+			(imp (basetype nat) (monad (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha)))))))))))
+		)
+		(succ zero)
+	) chan).
+
+check_producer : o.
+check_producer o-
+	pi k \ pi n \ ofsort k chan => ofatype n (basetype nat) =>
+	ofstype_e
+	(link
+		(coercemterm (par (coerceterm (app (inst integersupto k) n)) (coerceterm (inst empty k))))
+		(tens (coerceatype (monad (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha))))))))))) (coerceatype (basetype (typeapp queue k))))
+		(coerceatype (basetype (typeapp queue k)))
+	)
+	(coerceatype (basetype (typeapp queue k))).
+
+(* run_producer +I +N -Ev *)
+(* run_producer (k:chan) (n:nat) simply executes a cham with (integersupto [k] n) and an empty queue on channel k *)
+run_producer : indexterm -> term -> exp -> o.
+run_producer K N Ev o-
+	!ofsort K chan o-
+	!ofatype N (basetype nat) o-
+	evale
+	(link
+		(coercemterm (par (coerceterm (app (inst integersupto K) N)) (coerceterm (inst empty K))))
+		(tens (coerceatype (monad (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue K)) (monad (tens (coerceatype (basetype (typeapp queue K))) (oplus munit (coerceatype (monad alpha))))))))))) (coerceatype (basetype (typeapp queue K))))
+		(coerceatype (basetype (typeapp queue K)))
+	)
+	Ev.
+
+(* ------------------------ Consumer using asyncrecv ------------------------------- *)
+(* The consumer simply takes everything it gets and keeps adding it to a queue. Finally it prints the queue and exits *)
+(* Typechecks and executes *)
+
+printq : term.
+ofatype printq (forall (i \ (lolli (basetype (typeapp queue i)) (monad munit))) chan).
+evaln (lapp (inst printq I) Q) (memb (coercemterm unit)) o-
+	evaln Q (makequeue I L) o-
+	write "PRINTQ: \t" o-
+	write L o-
+	write "\n".
+
+check_consumer : o.
+
+check_consumer o-
+	ofatype
+	(recterm (consumer \ (univ (k \ (univ (m \ abs q \
+		(memb (coercemterm (fold
+			(recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad (tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k)))))))))))))
+			(asyncrecv k (n \ 
+				ifmterm (lapp (lapp equal n) endofData)
+					(inl (destroyasyncchan k (coerceterm (lapp (inst printq m) q))))
+					(inr (coerceterm (app (inst (inst consumer k) m) (app (lapp (inst push m) q) n))))
+			) (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k)))))))))))))))) )
+		)))
+	) chan)) chan))
+		(forall (k \ forall (m \ imp (basetype (typeapp queue m)) (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k))))))))))))))) chan) chan)
+	)
+	(forall (k \ forall (m \ imp (basetype (typeapp queue m)) (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k))))))))))))))) chan) chan).
+
+consumer : term.
+ofatype consumer (forall (k \ forall (m \ imp (basetype (typeapp queue m)) (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k))))))))))))))) chan) chan).
+
+evaln consumer V o- 
+	evaln (recterm (consumer \ (univ (k \ (univ (m \ abs q \
+		(memb (coercemterm (fold
+			(recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad (tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k)))))))))))))
+			(asyncrecv k (n \ 
+				ifmterm (lapp (lapp equal n) endofData)
+					(inl (destroyasyncchan k (coerceterm (lapp (inst printq m) q))))
+					(inr (coerceterm (app (inst (inst consumer k) m) (app (lapp (inst push m) q) n))))
+			) (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k)))))))))))))))) )
+		)))
+	) chan)) chan))
+		(forall (k \ forall (m \ imp (basetype (typeapp queue m)) (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k))))))))))))))) chan) chan)
+	) V.
+
+
+check_cons : o.
+
+check_cons o-
+	pi q \ pi m \ pi l \ ofsort m chan => typeslist l -o
+		ofstype_e
+			(link
+				(coercemterm (
+					priv (k \
+						par (coerceterm (makequeue k (endofData::l)))
+							(coerceterm (app (inst (inst consumer k) m) (inst empty m)))
+					) chan
+				))
+				(exists (k \ tens (coerceatype (basetype (typeapp queue k))) (coerceatype (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k)))))))))))))))) chan)
+				(munit)
+			)
+			(munit).
+
+run_cons : indexterm -> list term -> exp -> o.
+
+run_cons M L Ev o-
+	!ofsort M chan o-
+	typeslist L o-
+	evale
+      (link
+         (coercemterm (
+            priv (k \
+               par (coerceterm (makequeue k (endofData::L)))
+                  (coerceterm (app (inst (inst consumer k) M) (inst empty M)))
+            ) chan
+         ))
+         (exists (k \ tens (coerceatype (basetype (typeapp queue k))) (coerceatype (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k)))))))))))))))) chan)
+         (munit)
+      )
+		Ev.
+
+(* ----------------------------Producer-Consumer ------------------------------- *)
+(* Combined producer and consumer *)
+(* Typechecks and runs *)
+
+check_prod_cons : o.
+check_prod_cons o-
+	pi n \ pi m \ ofsort m chan => ofatype n (basetype nat) => 
+	ofstype_e
+		(link 
+			(coercemterm (
+				priv (k \ 
+					par (coerceterm (app (inst integersupto k) n))
+						(par (coerceterm (inst empty k))
+							(coerceterm (app (inst (inst consumer k) m) (inst empty m)))
+						)
+				) chan
+			))
+			(exists (k \ (tens (coerceatype (monad (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha))))))))))) (tens (coerceatype (basetype (typeapp queue k))) (coerceatype (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k)))))))))))))))))) chan)
+			(munit)
+		)
+		(munit).
+
+run_prod_cons : indexterm -> term -> exp -> o.
+run_prod_cons M N Ev o-
+	!ofsort M chan o-
+	!ofatype N (basetype nat) o-
+	evale
+		(link 
+			(coercemterm (
+				priv (k \ 
+					par (coerceterm (app (inst integersupto k) N))
+						(par (coerceterm (inst empty k))
+							(coerceterm (app (inst (inst consumer k) M) (inst empty M)))
+						)
+				) chan
+			))
+			(exists (k \ (tens (coerceatype (monad (recstype (alpha \ (coerceatype (lolli (basetype (typeapp queue k)) (monad (tens (coerceatype (basetype (typeapp queue k))) (oplus munit (coerceatype (monad alpha))))))))))) (tens (coerceatype (basetype (typeapp queue k))) (coerceatype (monad (recstype (beta \ (recstype (alpha \ coerceatype(lolli (basetype (typeapp queue k)) (monad (oplus (tens alpha (coerceatype (basetype (typeapp queue k)))) (coerceatype (monad(tens (oplus ((coerceatype (lolli (basetype (typeapp queue k)) (monad (coerceatype (monad munit)))))) (coerceatype (monad beta))) (coerceatype (basetype (typeapp queue k)))))))))))))))))) chan)
+			(munit)
+		)
+		Ev.
+
+
+(* -----------------------------Synchronous producer------------------------------------- *)
+(* typechecks and runs *)
+
+check_syncprod : o.
+
+check_syncprod o-
+	ofatype 
+	(univ (k \ abs (n \ app 
+		(recterm (l \ abs m \ memb (coercemterm 
+			(fold 
+				(recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan))
+				(ifmterm (lapp (lapp equal m) (succ n))
+					(syncsend k endofData (inl unit))
+					(syncsend k m (inr (coerceterm (app l (succ m)))))
+				)
+			)
+		)) (imp (basetype nat) (monad (recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan)))))
+		(zero)
+	)) chan)
+	(forall (k \ imp (basetype nat) (monad (recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan)))) chan).
+
+syncprod : term.
+
+ofatype syncprod (forall (k \ imp (basetype nat) (monad (recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan)))) chan).
+
+evaln syncprod 
+	(univ (k \ abs (n \ app 
+		(recterm (l \ abs m \ memb (coercemterm 
+			(fold 
+				(recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan))
+				(ifmterm (lapp (lapp equal m) (succ n))
+					(syncsend k endofData (inl unit))
+					(syncsend k m (inr (coerceterm (app l (succ m)))))
+				)
+			)
+		)) (imp (basetype nat) (monad (recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan)))))
+		(zero)
+	)) chan).
+
+(* --------------------- Synchronous consumer ----------------------- *)
+(* typechecks and runs *)
+
+natcasem : term -> mterm -> mterm -> (term -> mterm) -> mterm.
+
+notvaluem (natcasem N M1 M2 (x \ M3 x)).
+
+ofstype_m (natcasem N M1 M2 (x \ M3 x)) S o-
+	ofatype N (basetype nat) o-
+	(ofstype_m M1 S &
+	ofstype_m M2 S &
+	(pi x \ ofatype x (basetype nat) -o ofstype_m (M3 x) S)).
+
+evalm (natcasem N M1 M2 (x \ M3 x)) Mv1 o-
+	evaln N endofData o-
+	evalm M1 Mv1.
+
+evalm (natcasem N M1 M2 (x \ M3 x)) Mv2 o-
+	evaln N zero o-
+	evalm M2 Mv2.
+
+evalm (natcasem N M1 M2 (x \ M3 x)) Mv3 o-
+	evaln N (succ V) o-
+	evalm (M3 V) Mv3.
+
+llist : pred.	(* Linear list *)
+ofkind llist proptype.
+
+typesllist : list term -> o.
+
+typesllist nil.
+typesllist (X::L) o-
+	ofatype X (basetype nat) o-
+	typesllist L.
+	
+makellist : list term -> term.
+ofatype (makellist L) (basetype llist) o-
+	typesllist L.
+evaln (makellist L) (makellist L).
+
+consl : term.
+ofatype consl (lolli (basetype llist) (lolli (basetype nat) (basetype llist))).
+evaln (lapp (lapp consl Q) N) (makellist (V::L))
+	o- evaln Q (makellist L)
+	o- evaln N V.
+
+splitl : term.
+ofatype splitl (lolli (basetype llist) (monad (tens (coerceatype (basetype nat)) (coerceatype (basetype llist))))).
+evaln (lapp splitl Q) (memb (coercemterm (par (coerceterm V) (coerceterm (makellist L))))) o-
+	evaln Q (makellist (V::L)).
+
+printl : term.
+ofatype printl (lolli (basetype llist) (monad munit)).
+evaln (lapp printl Q) (memb (coercemterm unit)) o-
+	evaln Q (makellist L) o-
+	write "PRINTQ: \t" o-
+	write L o-
+	write "\n".
+
+check_synccons : o.
+
+check_synccons o-
+	ofatype
+	(recterm (consumer \ (univ (k \ labs q \
+		(memb (coercemterm (fold
+			(recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan)))
+			(syncrecv k (n \ 
+				natcasem (n)
+					(inl (coerceterm (lapp printl q)))
+					(inr (coerceterm (lapp (inst consumer k) (lapp (lapp consl q) zero))))
+					(x \ inr (coerceterm (lapp (inst consumer k) (lapp (lapp consl q) (succ x)))))
+			))
+		)))
+	) chan))
+		(forall (k \ lolli (basetype llist) (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan))))) chan)
+	)
+	(forall (k \ lolli (basetype llist) (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan))))) chan).
+
+synccons : term.
+
+ofatype synccons 	(forall (k \ lolli (basetype llist) (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan))))) chan).
+
+evaln synccons V o-
+	evaln (recterm (consumer \ (univ (k \ labs q \
+		(memb (coercemterm (fold
+			(recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan)))
+			(syncrecv k (n \ 
+				natcasem (n)
+					(inl (coerceterm (lapp printl q)))
+					(inr (coerceterm (lapp (inst consumer k) (lapp (lapp consl q) zero))))
+					(x \ inr (coerceterm (lapp (inst consumer k) (lapp (lapp consl q) (succ x)))))
+			))
+		)))
+	) chan))
+		(forall (k \ lolli (basetype llist) (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan))))) chan)
+	) V.
+
+(* ---------------- Synchronous producer and consumer ------------------- *)
+(* typechecks and executes *)
+
+check_syncprodcons : o.
+
+check_syncprodcons o- pi n \ 
+	ofatype n (basetype nat) => 
+	ofstype_e
+	(link
+		(coercemterm (priv (k \  
+			(par
+				(coerceterm (app (inst syncprod k) n))
+				(coerceterm (lapp (inst synccons k) (makellist nil)))
+			)
+		) chan))
+		(exists (k \ tens (coerceatype (monad (recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan)))) (coerceatype (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan)))))) chan)
+		(munit)
+	)
+	munit.
+
+run_syncprodcons : term -> exp -> o.
+
+run_syncprodcons N Ev o-
+	!ofatype N (basetype nat) o-
+	evale 
+	(link
+		(coercemterm (priv (k \  
+			(par
+				(coerceterm (app (inst syncprod k) N))
+				(coerceterm (lapp (inst synccons k) (makellist nil)))
+			)
+		) chan))
+		(exists (k \ tens (coerceatype (monad (recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan)))) (coerceatype (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 k) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan)))))) chan)
+		(munit)
+	)
+	Ev.
+
+(* -------------------- One-cell buffer ------------------------- *)
+(* typechecks and runs *)
+(* This program is not expected to terminate. It just prints an output and fails *)
+
+onecellbuffer : term.
+
+ofatype onecellbuffer (forall (read \ forall (write \ (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 write) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 read) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) alpha))) chan)))) chan)))))))) chan))) chan))))) chan) chan).
+
+evaln onecellbuffer 
+	(univ (read \ univ (write \ (memb (coercemterm (recmterm 
+		(u \ 
+			fold (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 write) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 read) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) alpha))) chan)))) chan)))))))) chan))) chan)))
+				(syncrecv write (x \ syncsend read x u))
+		) 
+		(recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 write) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 read) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) alpha))) chan)))) chan)))))))) chan))) chan)))
+	)))) chan) chan).
+
+check_onecellbuffer : o.
+
+check_onecellbuffer o-
+	ofatype 
+	(univ (read \ univ (write \ (memb (coercemterm (recmterm 
+		(u \ 
+			fold (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 write) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 read) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) alpha))) chan)))) chan)))))))) chan))) chan)))
+				(syncrecv write (x \ syncsend read x u))
+		) 
+		(recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 write) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 read) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) alpha))) chan)))) chan)))))))) chan))) chan)))
+	)))) chan) chan)
+	(forall (read \ forall (write \ (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 write) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 read) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) alpha))) chan)))) chan)))))))) chan))) chan))))) chan) chan).
+
+check_syncprodcons2 : o.
+
+check_syncprodcons2 o- pi n \ 
+	ofatype n (basetype nat) => 
+	ofstype_e
+	(link
+		(coercemterm (priv (read \ priv (write \ 
+			(par
+				(coerceterm (app (inst syncprod write) n))
+				(par
+					(coerceterm (lapp (inst synccons read) (makellist nil)))
+					(coerceterm (inst (inst onecellbuffer read) write))
+				)
+			)
+		) chan) chan))
+		(exists (read \ exists (write \ tens (coerceatype (monad (recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 write) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan)))) (tens (coerceatype (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 read) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan))))) (coerceatype (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 write) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 read) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) alpha))) chan)))) chan)))))))) chan))) chan))))))) chan) chan)
+		(munit)
+	)
+	munit.
+
+run_syncprodcons2 : term -> exp -> o.
+
+run_syncprodcons2 N Ev o-
+	!ofatype N (basetype nat) o-
+	evale 
+	(link
+		(coercemterm (priv (read \ priv (write \ 
+			(par
+				(coerceterm (app (inst syncprod write) N))
+				(par
+					(coerceterm (lapp (inst synccons read) (makellist nil)))
+					(coerceterm (inst (inst onecellbuffer read) write))
+				)
+			)
+		) chan) chan))
+		(exists (read \ exists (write \ tens (coerceatype (monad (recstype alpha \ (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 write) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) (oplus munit (coerceatype (monad alpha)))))) chan)))) chan)))) (tens (coerceatype (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 read) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (oplus (coerceatype (monad munit)) (coerceatype (monad alpha)))))))))) chan))) chan))))) (coerceatype (monad (recstype (alpha \ (exists (v \ (coerceatype (forall ( u \ (lolli (basetype (typeapp (typeapp out1 write) u)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u) v))) (coerceatype (lolli (basetype (typeapp data v)) (monad (exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 read) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) alpha))) chan)))) chan)))))))) chan))) chan))))))) chan) chan)
+		(munit)
+	)
+	Ev.
+
+(* ------------------- Synchronous recv-send choice test --------------------- *)
+(* typechecks and executes *)
+
+(* Simple test. Run the following P.
+	P = C1 | C2
+	C1 = k1(x:nat)? print(x) [] k2! (succ zero)
+	C2 = k2(x:nat)? print(x) [] k1! (succ (succ zero))
+*)
+
+printnat : term.
+ofatype printnat (lolli (basetype nat) (monad munit)).
+evaln (lapp printnat N) (memb (coercemterm unit)) o-
+	evaln N V o-
+	write "Print: \t" o-
+	write V o-
+	write "\n".
+
+k1 : indexterm.
+k2 : indexterm.
+ofsort k1 chan.
+ofsort k2 chan.
+
+check_choicerstest : o.
+
+check_choicerstest o-
+	ofstype_e 
+	(link
+		(coercemterm
+			(par
+				(syncchoicers k1 
+					(x \ coerceterm (memb (letmonad (lapp printnat x) (unitvar \ coercemterm (letunit unitvar unit)))))
+					k2 (succ zero) unit
+				)
+				(syncsend k1 (succ (succ zero)) unit)
+			)
+		)
+		(tens 
+			(exists (v1 \ exists (u2 \ exists (w1 \ tens (coerceatype (with (basetype (typeapp out0 w1)) (basetype (typeapp (typeapp out1 k2) u2)))) (coerceatype (with (lolli (basetype (typeapp out0 w1)) (forall (u1 \ lolli (basetype (typeapp (typeapp out1 k1) u1)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u1) v1))) (coerceatype (lolli (basetype (typeapp data v1)) (monad (coerceatype (monad munit)))))))) chan)) (forall (v2 \ lolli (basetype (typeapp (typeapp out1 u2) v2)) (monad (tens (coerceatype (basetype (typeapp data v2))) munit))) chan)))) chan) chan) chan)
+			(exists (u \ (tens (coerceatype (basetype (typeapp (typeapp out1 k1) u))) (coerceatype (forall (v \ lolli (basetype (typeapp (typeapp out1 u) v)) (monad (tens (coerceatype (basetype (typeapp data v))) munit))) chan)))) chan)
+		)
+		(munit)
+	)
+	(munit).
+
+run_choicerstest : exp -> o.
+
+run_choicerstest Ev o-
+	evale
+	(link
+		(coercemterm
+			(par
+				(syncchoicers k1 
+					(x \ coerceterm (memb (letmonad (lapp printnat x) (unitvar \ coercemterm (letunit unitvar unit)))))
+					k2 (succ zero) unit
+				)
+				(syncchoicers k2 
+					(x \ coerceterm (memb (letmonad (lapp printnat x) (unitvar \ coercemterm (letunit unitvar unit)))))
+					k1 (succ (succ zero)) unit
+				)
+			)
+		)
+		(tens 
+			(exists (v1 \ exists (u2 \ exists (w1 \ tens (coerceatype (with (basetype (typeapp out0 w1)) (basetype (typeapp (typeapp out1 k2) u2)))) (coerceatype (with (lolli (basetype (typeapp out0 w1)) (forall (u1 \ lolli (basetype (typeapp (typeapp out1 k1) u1)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u1) v1))) (coerceatype (lolli (basetype (typeapp data v1)) (monad (coerceatype (monad munit)))))))) chan)) (forall (v2 \ lolli (basetype (typeapp (typeapp out1 u2) v2)) (monad (tens (coerceatype (basetype (typeapp data v2))) munit))) chan)))) chan) chan) chan)
+			(exists (v1 \ exists (u2 \ exists (w1 \ tens (coerceatype (with (basetype (typeapp out0 w1)) (basetype (typeapp (typeapp out1 k1) u2)))) (coerceatype (with (lolli (basetype (typeapp out0 w1)) (forall (u1 \ lolli (basetype (typeapp (typeapp out1 k2) u1)) (monad (tens (coerceatype (basetype (typeapp (typeapp out1 u1) v1))) (coerceatype (lolli (basetype (typeapp data v1)) (monad (coerceatype (monad munit)))))))) chan)) (forall (v2 \ lolli (basetype (typeapp (typeapp out1 u2) v2)) (monad (tens (coerceatype (basetype (typeapp data v2))) munit))) chan)))) chan) chan) chan)
+		)
+		(munit)
+	)
+	Ev.
+

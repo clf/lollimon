@@ -1,0 +1,234 @@
+(*
+   The Alternating Bit Protocol (ABP)
+   Author: Pablo Lopez
+
+   Reference: "A Note on Reliable Full-Duplex Transmission over Half-Duplex Links"
+              K. A. Barlett, R.A. Scantlebury, P.T. Wilkinson
+              Comm. of the ACM, vol 12, num. 5, May 1969, pags 260-265
+*)  
+
+
+(***
+ For the ABP protocol we have 4 processes: sender, data channel, receiver, ack channel.
+
+ There are two more processes, producer and consumer, that use the protocol for the
+ tansmission of a given set of data (represented as a list.)
+
+ For each process, we give a signature and a set of rules.
+***)
+
+(*** bits ***)
+
+bit : type.
+
+b0 : bit.
+b1 : bit.
+
+complement: bit -> bit -> o.
+
+complement b0 b1.
+complement b1 b0.
+
+(*** frames ***)
+
+frm: type.
+frame: T -> bit -> frm.  (* a frame holds the data and a state bit *)
+
+(*** signatures ***)
+
+(*** producer ***)
+
+send : list T -> o.   (* the list contains the data to be sent *)
+sent : o.             (* the data on the list have been sent *)
+
+(*** sender ***)
+
+(* state *)
+
+sender_bit : bit -> o.   (* the sender state bit *)
+sender_available : o.    (* there is no buffer between producer and sender *)
+sender_buffer: T -> o.   (* the data being sent is kept for resending *)
+
+(* events *)
+
+sender_data: T -> o.     (* sender gets data from producer *)
+original_ack : bit -> o. (* sender gets an ack from ack channel *)
+corrupted_ack : o.       (* sender gets a corrupted ack from ack channel *)
+
+(* timeouts *)
+
+lost_frame : o.          (* the frame got lost *)
+lost_ack   : o.          (* the ack got lost   *)
+
+sender_shutdown: o.      (* clean up the state *)
+
+(*** data channel ***)
+
+data_frame: frm -> o.    (* channel receives a frame from sender *)
+
+(*** ack channel ***)
+
+ack_frame: bit -> o.     (* channel receives an ack from receiver *)
+
+(*** receiver ***)
+
+(* state *)
+
+receiver_bit: bit -> o.         (* the receiver state bit *)
+
+(* events *)
+
+original_frame: T -> bit -> o.  (* receiver gets a frame from data channel *)
+corrupted_frame: o.             (* receiver gets a corrupted frame from data channel *)
+
+receiver_shutdown : o.          (* clean up state *)
+
+(*** consumer ***)
+
+consumer_data: T -> o.  (* consumer receives a data from receiver *)
+
+(*** rules ***)
+
+(*** producer ***)
+
+send (X::Xs),            (* send one data D to sender, whenever it's available *)
+sender_available,
+write "sending: ", write X, nl
+-o { sender_data X,
+     send Xs
+   }.
+
+sent o-                  (* all data sent, clear up the environment *)
+   send nil,                
+   sender_shutdown,
+   receiver_shutdown,
+   write "finished", nl.
+
+(*** sender ***) 
+ 
+#linear sender_bit b0.       (* sender's state *)
+#linear sender_available.
+
+sender_data D,                                    (* send a frame *)
+sender_bit Bs,
+write "  S: sent ", write (frame D Bs), nl
+ -o {sender_buffer D,
+     sender_bit  Bs,
+     data_frame (frame D Bs)
+    }.
+
+original_ack Ba,                                  (* receive positive ack: got to next data *)
+sender_bit Ba,
+complement Ba Bs,
+sender_buffer D,
+write "  S: ack received", nl
+ -o { sender_available,
+      sender_bit Bs
+    }.
+
+original_ack Ba,                                  (* receive negative acknowledge: resend data *)
+sender_bit Bs,
+complement Ba Bs,
+sender_buffer D,
+write "  S: REsent (nack) ", write (frame D Bs), nl
+-o { sender_buffer D,
+     sender_bit Bs,
+     data_frame (frame D Bs)
+   }.
+
+corrupted_ack,                                    (* receive corrupted acknowledge: resend data *)
+sender_bit Bs,
+sender_buffer D,
+write "  S: REsent (corrupted ack) ", write D, write Bs, nl
+-o { sender_buffer D,
+     sender_bit Bs,
+     data_frame (frame D Bs)
+   }.
+
+lost_frame,                                       (* timeout, frame got lost: resend data *)
+sender_buffer D,
+sender_bit Bs,
+write "  S: REsent (frame lost) ", write (frame D Bs), nl
+-o { sender_buffer D,
+     sender_bit Bs,
+     data_frame (frame D Bs)
+   }.
+
+lost_ack,                                         (* timeout, ack got lost: resend data *)
+sender_buffer D,
+sender_bit Bs,
+write "  S: REsent (ack lost) ", write (frame D Bs), nl
+-o { sender_buffer D,
+     sender_bit Bs,
+     data_frame (frame D Bs)
+   }.
+
+sender_shutdown o-        (* clean up sender state *)
+   sender_bit Bs,        
+   sender_available.
+
+(*** data channel ***)
+
+data_frame (frame D B)
+ -o  
+  { original_frame D B & 
+    corrupted_frame    &
+    lost_frame
+  }.
+
+(*** receiver ***)
+
+#linear receiver_bit b0.
+
+original_frame D Br,                       (* good frame, expected bit *)                  
+receiver_bit Br,
+complement Br CBr,
+write "  R: received ", write (frame D Br), nl
+ -o { consumer_data D,
+      receiver_bit CBr,
+      ack_frame Br
+    }.
+
+original_frame D Bs,                       (* good frame, unexpected bit *)
+receiver_bit Br,
+complement Br Bs,
+write "  R: discarded ", write (frame D Bs), nl
+ -o { receiver_bit Br,
+      ack_frame Bs
+    }.
+
+corrupted_frame,                            (* corrupted frame *)
+receiver_bit Br,
+complement Br Ba,
+write "  R: frame corrupted", nl
+  -o { receiver_bit Br,              
+       ack_frame Ba
+     }.
+
+receiver_shutdown o-                       (* clean up receiver state *)
+   receiver_bit Br.
+
+(*** ack channel ***)
+
+ack_frame Bs
+-o {
+     original_ack Bs &
+     corrupted_ack   &
+     lost_ack
+   }.
+
+(*** consumer ***)
+
+consumer_data D,
+write "received: ", write D, nl
+ -o { one }.
+
+
+(*** example ***)
+
+(*
+   send (1::2::3::nil) -o {sent}.
+*)
+
+
+

@@ -1,0 +1,340 @@
+(*
+   Mobile code based on S4
+   Author: Frank Pfenning
+
+   Using affine type-checking trick to encode
+   modal restrictions
+*)
+exp : type.
+com : type.
+tp : type.
+
+arrow : tp -> tp -> tp.
+lam : (exp -> exp) -> exp.
+app : exp -> exp -> exp.
+
+nat : tp.
+z : exp.
+s : exp -> exp.
+case : exp -> exp -> (exp -> exp) -> exp.
+
+fix : (exp -> exp) -> exp.
+let : exp -> (exp -> exp) -> exp.
+
+box : tp -> tp.
+boxi : exp -> exp.
+letbox : exp -> (exp -> exp) -> exp.
+
+dia : tp -> tp.
+diai : com -> exp.
+letdia : exp -> (exp -> com) -> com.
+letboxc : exp -> (exp -> com) -> com.
+
+local : exp -> com.
+
+(* type checking *)
+of : exp -> tp -> o.
+poss : com -> tp -> o.
+
+of (lam x \ E x) (arrow T1 T2)
+ o- (pi x \ (of x T1 o- top) -o of (E x) T2).
+of (app E1 E2) T1
+ o- of E1 (arrow T2 T1) & of E2 T2.
+
+of z nat o- top.
+of (s E) nat
+ o- of E nat.
+of (case E1 E2 (x \ E3 x)) T
+ o- of E1 nat & of E2 T &
+    (pi x \ (of x nat o- top) -o of (E3 x) T).
+of (fix (x \ E x)) T
+ o- (pi x \ (of x T o- top) -o of (E x) T).
+of (let E1 (x \ E2 x)) T
+ o- of (E2 E1) T.  (* let is polymorphic *)
+
+of (boxi E) (box T)
+ o- !of E T, top.  (* modal restriction here *)
+of (letbox E1 u \ E2 u) T
+ o- of E1 (box T1) &
+    (pi u \ (of u T1 o- top) => of (E2 u) T).
+
+of (diai P) (dia T)
+ o- poss P T.
+poss (letdia E1 u \ E2 u) T
+ o- of E1 (dia T1),
+    !(pi x \ (of x T1 o- top) -o poss (E2 x) T).
+poss (letboxc E1 u \ P2 u) T
+ o- of E1 (box T1),
+    (pi u \ (of u T1 o- top) => of (E2 u) T).
+poss (local E) T
+ o- of E T.
+
+(* operational semantics *)
+(* in linear destination passing style *)
+dest : type.
+world : type.
+frame : type.
+
+eval : world -> exp -> dest -> o.
+return : world -> exp -> dest -> o.
+comp : world -> frame -> dest -> o.
+
+(* functions *)
+app1 : dest -> exp -> frame.
+app2 : exp -> dest -> frame.
+
+eval W (lam x \ E x) D
+  -o {return W (lam x \ E x) D}.
+
+eval W (app E1 E2) D
+  -o {sigma d1 \ 
+        eval W E1 d1,
+        comp W (app1 d1 E2) D}.
+
+return W V1 D1,
+comp W (app1 D1 E2) D
+  -o {sigma d2 \
+        eval W E2 d2,
+        comp W (app2 V1 d2) D}.
+
+return W V2 D2,
+comp W (app2 (lam x \ E1' x) D2) D
+  -o {eval W (E1' V2) D}.
+
+(* natural numbers *)
+s1 : dest -> frame.
+case1 : dest -> exp -> (exp -> exp) -> frame.
+
+eval W z D
+  -o {return W z D}.
+
+eval W (s E1) D
+  -o {sigma d1 \ eval W E1 d1, comp W (s1 d1) D}.
+
+return W V1 D1,
+comp W (s1 D1) D
+  -o {return W (s V1) D}.
+
+eval W (case E1 E2 (x \ E3 x)) D
+  -o {sigma d1 \
+        eval W E1 d1,
+        comp W (case1 d1 E2 (x \ E3 x)) D}.
+
+return W z D1,
+comp W (case1 D1 E2 (x \ E3 x)) D
+  -o {eval W E2 D}.
+
+return W (s V1') D1,
+comp W (case1 D1 E2 (x \ E3 x)) D 
+  -o {eval W (E3 V1') D}.
+
+(* recursion *)
+eval W (fix (x \ E1 x)) D
+  -o {eval W (E1 (fix (x \ E1 x))) D}.
+
+(* definitions *)
+let1 : dest -> (exp -> exp) -> frame.
+
+eval W (let E1 x \ E2 x) D
+  -o {sigma d1 \ eval W E1 d1, comp W (let1 d1 x \ E2 x) D}.
+
+return W V1 D1,
+comp W (let1 D1 x \ E2 x) D
+  -o {eval W (E2 V1) D}.
+
+(* mobile code *)
+at : world -> dest -> exp.
+letbox1 : dest -> (exp -> exp) -> frame.
+
+eval W (boxi E) D
+  -o {return W (boxi E) D}.
+
+eval W (letbox E1 u \ E2 u) D
+  -o {sigma d1 \
+        eval W E1 d1,
+        comp W (letbox1 d1 u \ E2 u) D}.
+
+return W (boxi E1') D1,
+comp W (letbox1 D1 u \ E2 u) D
+  -o {sigma w1 \ sigma d1 \ 
+        eval w1 E1' d1,
+        eval W (E2 (at w1 d1)) D}.
+
+(* remote references are pseudo-values *)
+eval W (at W1 D1) D
+  -o {return W (at W1 D1) D}.
+
+(* synchronization *)
+return W (at W1 D1) D,
+return W1 V1 D1
+  -o {return W V1 D,
+      return W1 V1 D1}.
+
+(* possibility *)
+exec : world -> com -> dest -> o.
+answer : world -> com -> dest -> o.
+
+local1 : dest -> frame.
+letboxc1 : dest -> (exp -> com) -> frame.
+letdia1 : dest -> (exp -> com) -> frame.
+letdia2 : dest -> (exp -> com) -> frame.
+remote : world -> dest -> com.
+
+exec W (local E1) D
+  -o {sigma d1 \
+        eval W E1 d1,
+        comp W (local1 d1) D}.
+
+return W V1 D1,
+comp W (local1 D1) D
+  -o {answer W (local V1) D}.
+
+exec W (letboxc E1 u \ P2 u) D
+  -o {sigma d1 \
+        eval W E1 d1,
+        comp W (letboxc1 d1 u \ P2 u) D}.
+
+return W (boxi E1') D1,
+comp W (letboxc1 D1 u \ P2 u) D
+  -o {sigma w1 \ sigma d1 \
+        eval w1 E1' d1,
+        exec W (P2 (at w1 d1)) D}.
+
+eval W (diai P) D
+  -o {return W (diai P) D}.
+
+exec W (letdia E1 x \ P2 x) D
+  -o {sigma d1 \
+        eval W E1 d1,
+        comp W (letdia1 d1 x \ P2 x) D}.
+
+return W (diai P1) D1,
+comp W (letdia1 D1 x \ P2 x) D
+  -o {sigma d1' \
+        exec W P1 d1',
+        comp W (letdia2 d1' x \ P2 x) D}.
+
+(*
+   This is slightly different from syncl
+   in LOPSTR'04 since the continuation after D
+   is not transfered.
+*)
+answer W (remote W' D') D1',
+comp W (letdia2 D1' x \ P2 x) D,
+answer W' (local V') D'
+  -o {sigma d3 \
+        answer W (remote W' d3) D,
+	answer W' (local V') D',
+	exec W' (P2 V') d3}.
+
+answer W (local V1') D1',
+comp W (letdia2 D1' x \ P2 x) D
+  -o {exec W (P2 V1') D}.
+
+(*
+   This is slightly different from resolve
+   in LOPSTR'04 since it does not require
+   a letdia2 frame.  We could add
+     comp W (letdia2 D1' x \ P2 x) D
+   to left and right hand sides.
+*)
+answer W (remote W' D') D1',
+answer W' (remote W3 D3) D'
+  -o {answer W (remote W3 D3) D1',
+      answer W' (remote W3 D3) D'}.
+
+exec W (remote W' D') D
+  -o {answer W (remote W' D') D}.
+
+(*
+   If a process label occurs in the final
+   value, the "evaluate" predicate fails, since
+   the return value V does not make sense at the top level.
+   In that case we would have to construct a closure,
+   or we can simply verify termination without showing
+   the value.
+*)
+terminates : exp -> o.
+terminates E o- (pi w \ pi d \
+                   eval w E d -o {sigma V \ return w V d, top}).
+
+(* PURIFICATION only for natural numbers, not closures *)
+purify : exp -> exp -> o.
+purify z z o- top.
+purify (s V) (s V')
+  o- purify V V'.
+purify (at W D) V'
+  o- (return W V D, top) & purify V V'.
+
+(* evaluation is affine: completed threads are not garbage collected *)
+(* eval and return predicates are parameterized by a world *)
+(* V0 must be locally quantified, V can be global *)
+evaluate : exp -> exp -> o.
+evaluate E V
+  o- (pi w \ pi d \
+       eval w E d -o {sigma V0 \ return w V0 d, purify V0 V, top}).
+
+execute_local : com -> exp -> o.
+execute_local P V
+  o- (pi w \ pi d \
+       exec w P d -o {sigma V0 \ answer w (local V0) d, purify V0 V, top}).
+
+execute_remote : com -> exp -> o.
+execute_remote P V
+  o- (pi w \ pi d \
+       exec w P d -o {sigma W0 \ sigma D0 \ sigma V0 \ 
+                       answer w (remote W0 D0) d,
+		       answer W0 (local V0) D0,
+		       purify V0 V,
+                       top}).
+
+(* Examples
+of (lam x \ boxi x) T.  -- should fail
+of (box (lam x \ x)) T.  -- should succeed
+of (lam y \ box (lam x \ y)) T. -- should fail
+of (lam y \ box (lam x \ x)) T. -- should succeed
+of (letbox (boxi (app (lam x \ x) z)) (u \ case u (s z) (y \ s (s z)))) T.
+
+of (letdia (diai z) x \ x) T.  -- should fail
+of (diai (letdia (diai z) x \ x)) T. -- should succeed
+of (lam y \ diai (letdia (diai z) x \ y)) T. -- should fail
+of (letbox (boxi z) u \ diai (letdia (diai z) x \ u)) T. -- should succeed
+
+evaluate (letbox (boxi z) (u \ z)) V.
+evaluate (letbox (boxi z) (u \ u)) V.
+evaluate (letbox (boxi z) (u \ s u)) V.
+evaluate (letbox (boxi z) (u \ case u z (y \ s y))) V.
+evaluate (letbox (boxi (s z)) (u \ case u z (y \ s y))) V.
+ -- next query can have 1 or 2 synchronizations, depending on when they happen
+evaluate (letbox (boxi (s z)) (u \ case u z (y \ s u))) V.
+
+poss (letdia (diai (local z)) x \ (local x)) T.
+execute (letdia (diai (local z)) x \ (local x)) V.
+
+pi w0 \ pi d0 \ pi w1 \ pi d1 \
+  answer w0 (local z) d0
+  -o exec w1 (letdia (diai (remote w0 d0)) x \ local (s x)) d1
+  -o {sigma d2 \ answer w0 (local z) d0,
+                 answer w0 (local (s z)) d2,
+                 answer w1 (remote w0 d2) d1}.
+
+(* same as above *)
+(* move apply s to z at w0 *)
+pi w0 \ pi d0 \
+  answer w0 (local z) d0
+  -o execute_remote (letdia (diai (remote w0 d0)) x \ local (s x)) V.
+
+(* two hops: apply s at w0 and ss at w1 starting from z *)
+pi w0 \ pi d0 \ pi w1 \ pi d1 \
+     answer w0 (local (lam x \ letbox x (u \ boxi (s u)))) d0
+  -o answer w1 (local (lam x \ letbox x (u \ boxi (s (s u))))) d1
+  -o execute_remote (letboxc (boxi z) u \
+                     letdia (diai (remote w0 d0)) f \
+                     letboxc (app f (boxi u)) u' \
+                     letdia (diai (remote w1 d1)) f' \
+                     letboxc (app f' (boxi u')) u'' \
+                     local u'') V.
+  
+
+*)
+

@@ -1,0 +1,125 @@
+(*
+   Call-by-Need in Linear Destination Passing
+   Author: Frank Pfenning
+*)
+
+exp : type.
+dest : type.
+frame : type.
+eval : exp -> dest -> o.
+return : exp -> dest -> o.
+comp : frame -> dest -> o.
+
+evaluate : exp -> exp -> o.
+evaluate E V o- (pi d \ eval E d -o {return V d, top}).
+
+evalprint : exp -> o.
+evalprint E o- (pi d \ eval E d -o {sigma V \ return V d, write V, nl, top}).
+
+(* thunks *)
+(* this version does not create an new intermediate destination *)
+thunk : dest -> exp.
+thunk1 : exp -> frame.
+thunk2 : dest -> frame.
+
+eval (thunk T2) D,
+comp (thunk1 E2) T2
+  -o {eval E2 T2, comp (thunk2 T2) D}.
+
+return V2 T2,
+comp (thunk2 T2) D
+  -o {!return V2 T2, return V2 D}.
+
+(* this rule omitted on talk slide *)
+eval (thunk T2) D,
+return V2 T2
+  -o {return V2 D}.
+
+(* thunks *)
+(* this version creates an new intermediate destination *)
+(*
+thunk : dest -> exp.
+thunk1 : exp -> frame.
+thunk2 : dest -> dest -> frame.
+
+eval (thunk T2) D,
+comp (thunk1 E2) T2
+  -o {sigma d2 \ eval E2 d2, comp (thunk2 d2 T2) D}.
+
+return V2 D2,
+comp (thunk2 D2 T2) D
+  -o {!return V2 T2, return V2 D}.
+
+eval (thunk T2) D,
+return V2 T2
+  -o {return V2 D}.
+*)
+
+(* functions *)
+lam : (exp -> exp) -> exp.
+app : exp -> exp -> exp.
+app1 : dest -> exp -> frame.
+
+eval (lam x \ E x) D
+  -o {return (lam x \ E x) D}.
+
+eval (app E1 E2) D
+  -o {sigma d1 \ eval E1 d1, comp (app1 d1 E2) D}.
+
+return (lam x \ E1' x) D1,
+comp (app1 D1 E2) D
+  -o {sigma t2 \ comp (thunk1 E2) t2, eval (E1' (thunk t2)) D}.
+
+(* natural numbers *)
+z : exp.
+s : exp -> exp.
+case : exp -> exp -> (exp -> exp) -> exp.
+case1 : dest -> exp -> (exp -> exp) -> frame.
+
+eval z D
+  -o {return z D}.
+
+eval (s E1) D
+  -o {return (s E1) D}.
+
+eval (case E1 E2 (x \ E3 x)) D
+  -o {sigma d1 \ eval E1 d1, comp (case1 d1 E2 (x \ E3 x)) D}.
+
+return z D1,
+comp (case1 D1 E2 (x \ E3 x)) D
+  -o {eval E2 D}.
+
+return (s E1') D1,
+comp (case1 D1 E2 (x \ E3 x)) D 
+  -o {sigma t1 \ comp (thunk1 E1') t1, eval (E3 (thunk t1)) D}.
+
+(* recursion *)
+(* not done via thunks *)
+fix : (exp -> exp) -> exp.
+
+eval (fix (x \ E1 x)) D
+  -o {eval (E1 (fix (x \ E1 x))) D}.
+
+(* definition *)
+(* evaluates argument instead of building thunk *)
+let : exp -> (exp -> exp) -> exp.
+let1 : dest -> (exp -> exp) -> frame.
+
+eval (let E1 x \ E2 x) D
+  -o {sigma d1 \ eval E1 d1, comp (let1 d1 x \ E2 x) D}.
+
+return V1 D1,
+comp (let1 D1 x \ E2 x) D
+  -o {eval (E2 V1) D}.
+
+(* examples
+evaluate (app (lam x \ x) (lam y \ y)) V, V = (lam z \ z).
+evaluate (s (s z)) V, V = s (s z).
+evaluate (case z z (x' \ s x')) V, V = z.
+evalprint (app (fix p \ lam x \ case x z (x' \ s (s (app p x')))) (s (s z))).
+evaluate(let (fix p \ lam x \ case x z (x' \ let (app p x') (y \ s y)))
+ force \ (app (fix p \ lam x \ case x z (x' \ app force (s (s (app p x'))))) (s (s z)))) V, V = s (s (s (s z))).
+evaluate (let (fix p \ lam x \ case x z (x' \ let (app p x') (y \ s y)))
+           force \ let (s z) (one \ app force (s one))) V, V = s (s z).
+
+*)

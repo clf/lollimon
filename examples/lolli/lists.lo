@@ -1,0 +1,49 @@
+member : T -> list T -> o. 
+
+member X (X :: Xs).
+member X (Y :: Xs) :- member X Xs.
+
+
+reverse : list T -> list T -> o.
+rev : list T -> list T -> list T -> o.
+
+reverse L M :- rev L nil M.
+rev nil L L.
+rev (H :: T) L M :- rev T (H :: L) M.
+
+
+append : list T -> list T -> list T -> o.
+
+append nil Ys Ys.
+append (X :: Xs) Ys (X :: Zs) :- append Xs Ys Zs.
+
+
+(*** Example Queries ***)
+
+ el : type.
+ a : el -> el.
+ b : el -> el.
+ c : el -> el.
+ d : el -> el.
+ e : el.
+
+#query 1 2 1
+ pi p \ pi q \ sigma L \ L = (a p) :: (b q) :: (c p) :: (d q) :: e :: nil , 
+                         member P L , member Q L.
+
+(** Has only 1 solution where P = e and Q = e. **)
+
+
+#query 9 10 1
+ pi p \ pi q \ sigma L \ L = (a p) :: (b q) :: (c p) :: (d q) :: e :: nil , 
+                         member (P p) L , member (Q q) L.
+
+(** Has 9 solutions **)
+
+
+#query 3 4 1
+ pi p \ append (L1 p) L2 (1 :: 2 :: p :: 3 :: 4 :: nil).
+
+(** Has 3 solutions **) 
+ 
+

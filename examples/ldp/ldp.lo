@@ -1,0 +1,178 @@
+(*
+   Linear destination passing
+   Author: Frank Pfenning
+*)
+
+exp : type.
+dest : type.
+frame : type.
+eval : exp -> dest -> o.
+return : exp -> dest -> o.
+comp : frame -> dest -> o.
+evaluate : exp -> exp -> o.
+evaluate_affine : exp -> exp -> o.
+evaluate_linear : exp -> exp -> o.
+terminates : exp -> o.
+
+evaluate_affine E V o- (pi d \ eval E d -o {return V d, top}).
+evaluate E V o- evaluate_affine E V.
+(* default is affine *)
+
+(* strictly linear example *)
+evaluate_linear E V o- (pi d \ eval E d -o {return V d}).
+terminates E o- (pi d \ eval E d -o {sigma V \ return V d, top}).
+
+(* functions *)
+lam : (exp -> exp) -> exp.
+app : exp -> exp -> exp.
+app1 : dest -> exp -> frame.
+app2 : exp -> dest -> frame.
+
+eval (lam x \ E x) D
+  -o {return (lam x \ E x) D}.
+
+eval (app E1 E2) D
+  -o {sigma d1 \ eval E1 d1, comp (app1 d1 E2) D}.
+
+comp (app1 D1 E2) D
+  -o return V1 D1
+  -o {sigma d2 \ eval E2 d2, comp (app2 V1 d2) D}.
+
+comp (app2 (lam x \ E1' x) D2) D
+  -o return V2 D2
+  -o {eval (E1' V2) D}.
+
+
+(* natural numbers *)
+z : exp.
+s : exp -> exp.
+s1 : dest -> frame.
+case : exp -> exp -> (exp -> exp) -> exp.
+case1 : dest -> exp -> (exp -> exp) -> frame.
+
+eval z D
+  -o {return z D}.
+
+eval (s E1) D
+  -o {sigma d1 \ eval E1 d1, comp (s1 d1) D}.
+
+comp (s1 D1) D
+  -o return V1 D1
+  -o {return (s V1) D}.
+
+eval (case E1 E2 (x \ E3 x)) D
+  -o {sigma d1 \ eval E1 d1, comp (case1 d1 E2 (x \ E3 x)) D}.
+
+comp (case1 D1 E2 (x \ E3 x)) D
+  -o return z D1
+  -o {eval E2 D}.
+
+comp (case1 D1 E2 (x \ E3 x)) D 
+  -o return (s V1') D1
+  -o {eval (E3 V1') D}.
+
+
+(* recursion *)
+fix : (exp -> exp) -> exp.
+
+eval (fix (x \ E1 x)) D
+  -o {eval (E1 (fix (x \ E1 x))) D}.
+
+
+(* definition *)
+let : exp -> (exp -> exp) -> exp.
+let1 : dest -> (exp -> exp) -> frame.
+
+eval (let E1 x \ E2 x) D
+  -o {sigma d1 \ eval E1 d1, comp (let1 d1 x \ E2 x) D}.
+comp (let1 D1 x \ E2 x) D
+  -o return V1 D1
+  -o {eval (E2 V1) D}.
+
+
+(* below requires affine evaluation *)
+(* or garbage collection *)
+cell : exp -> dest -> o.
+collect : o.
+evaluate_collect : exp -> exp -> o.
+
+collect.
+collect o- cell V L, collect.
+
+evaluate_collect E V o- (pi d \ eval E d -o {return V d, collect}).
+
+
+(* store *)
+newref : exp -> exp.
+newref1 : dest -> frame.
+loc : dest -> exp.
+deref : exp -> exp.
+deref1 : dest -> frame.
+assign : exp -> exp -> exp.
+assign1 : dest -> exp -> frame.
+assign2 : exp -> dest -> frame.
+
+eval (newref E1) D
+  -o {sigma d1 \ eval E1 d1, comp (newref1 d1) D}.
+comp (newref1 D1) D
+  -o return V1 D1
+  -o {sigma l1 \ cell V1 l1, return (loc l1) D}.
+
+eval (loc L) D
+  -o {return (loc L) D}.
+
+eval (deref E1) D
+  -o {sigma d1 \ eval E1 d1, comp (deref1 d1) D}.
+comp (deref1 D1) D
+  -o return (loc L1) D1
+  -o cell V1 L1
+  -o {return V1 D, cell V1 L1}.
+
+eval (assign E1 E2) D
+  -o {sigma d1 \ eval E1 d1, comp (assign1 d1 E2) D}.
+comp (assign1 D1 E2) D
+  -o return V1 D1
+  -o {sigma d2 \ eval E2 d2, comp (assign2 V1 d2) D}.
+comp (assign2 (loc L1) D2) D
+  -o return V2 D2
+  -o cell V1 L1
+  -o {return V1 D, cell V2 L1}.
+
+(*** examples ***)
+
+#query 1 2 1
+evaluate_linear (app (lam x \ x) (lam y \ y)) V, V = (lam z \ z).
+
+#query 1 2 1
+evaluate_linear (s (s z)) V, V = s (s z).
+
+#query 1 2 1
+evaluate_linear (case z z (x' \ s x')) V, V = z.
+
+#query 1 2 1
+evaluate_linear (app (fix p \ lam x \ case x z (x' \ s (s (app p x')))) (s (s z))) V, V = s (s (s (s z))).
+
+#query 1 2 1
+evaluate_linear (let (s z) (one \ s one)) V, V = s (s z).
+
+#query 0 1 1
+evaluate (newref (s z)) V. (* fails since V contains new parameter *)
+
+#query 1 2 1
+evaluate_affine (deref (newref (s z))) V, V = (s z).
+
+#query 1 2 1
+evaluate_affine (assign (newref z) (s z)) V, V = z.
+
+#query 1 2 1
+evaluate_affine (let (newref (s z)) r \ deref r) V, V = s z.
+
+#query 1 2 1
+evaluate_affine (let (newref (s z)) r \ let (assign r z) x \ deref r) V, V = z.
+
+
+(** next testing collection **)
+
+#query 1 2 1
+evaluate_collect (let (newref (s z)) r \ let (assign r z) x \ deref r) V, V = z.
+

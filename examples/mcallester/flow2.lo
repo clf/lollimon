@@ -1,0 +1,109 @@
+(*
+   Flow analysis in lambda-calculus with pairing
+   David McAllester: On the Complexity Analysis of Static Analyses
+   JACM 49(4), July 2002, pp.512-537
+
+   This avoids the use of a priori uniquely named variables
+
+   Scribe: Frank Pfenning
+*)
+
+(* expressions, using hoas *)
+exp : type.
+pair : exp -> exp -> exp.
+pi1 : exp -> exp.
+pi2 : exp -> exp.
+app : exp -> exp -> exp.
+lam : (exp -> exp) -> exp.
+
+(* labeled terms, using labels as variables *)
+label : type.
+term : type.
+lvar : label -> term.
+lpair : label -> label -> term.
+lpi1 : label -> term.
+lpi2 : label -> term.
+lapp : label -> label -> term.
+llam : label -> label -> term.
+
+(* phase 1: labeling of all subexpression occurrences *)
+
+name_exp : label -> exp -> o.
+lterm : label -> term -> o.
+
+name_exp L (pair E1 E2)
+-o {sigma L1 \ sigma L2 \ !lterm L (lpair L1 L2),
+      name_exp L1 E1, name_exp L2 E2}.
+
+name_exp L (pi1 E')
+-o {sigma L' \ !lterm L (lpi1 L'), name_exp L' E'}.
+
+name_exp L (pi2 E')
+-o {sigma L' \ !lterm L (lpi2 L'), name_exp L' E'}.
+
+name_exp L (app E1 E2)
+-o {sigma L1 \ sigma L2 \ !lterm L (lapp L1 L2),
+      name_exp L1 E1, name_exp L2 E2}.
+
+name_exp L (lam x \ E' x)
+-o {sigma x \ sigma Lx \ sigma L' \ !lterm L (llam Lx L'),
+      name_exp L' (E' x), !(pi Ls \ (name_exp Ls x -o {!lterm Ls (lvar Lx)}))}.
+
+(* phase 2: flow analysis of labeled terms *)
+compute : label -> o.
+evalsto : label -> term -> o.
+stepsto : label -> label -> o.
+
+compute L, lterm L (lapp L1 L2)
+=> {!compute L1, !compute L2}.
+
+compute L, lterm L (llam Lx L')
+=> {!evalsto L (llam Lx L'),
+    !compute L'}.
+
+compute L, lterm L (lapp L1 L2),
+evalsto L1 (llam Lx L1')
+=> {!stepsto Lx L2, !stepsto L L1'}.
+
+stepsto L1 L2,
+evalsto L2 V
+=> {!evalsto L1 V}.
+
+compute L, lterm L (lpair L1 L2)
+=> {!compute L1, !compute L2, !evalsto L (lpair L1 L2)}.
+
+compute L, lterm L (lpi1 L')
+=> {!compute L'}.
+
+compute L, lterm L (lpi2 L')
+=> {!compute L'}.
+
+compute L, lterm L (lpi1 L'),
+evalsto L' (lpair L1 L2)
+=> {!stepsto L L1}.
+
+compute L, lterm L (lpi2 L'),
+evalsto L' (lpair L1 L2)
+=> {!stepsto L L2}.
+
+(* top-level interface *)
+#ordered print.
+print : o.
+print <= lterm L T, write (lterm L T), nl, zero.
+print <= evalsto E E', write (evalsto E E'), nl, zero.
+print.
+
+(* note cool use of nested monads to proceed in phases *)
+evaluate : exp -> o.
+evaluate E
+ <= (pi l0 \ name_exp l0 E -o {compute l0 => {print}}).
+
+(* examples *)
+(*
+evaluate (app (lam x \ x) (lam y \ y)).
+
+evaluate (app (lam x \ (pair (pi2 x) (pi1 x)))
+              (pair (lam y \ (lam x \ y)) (lam u \ (lam w \ w)))).
+
+evaluate (app (lam x \ (app x x)) (lam y \ (app y y))).
+*)
