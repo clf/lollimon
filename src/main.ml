@@ -39,9 +39,7 @@ Load up all "module" code
 
 #use "newparser.ml";
 
-(*
 #use "modes.ml";
-*)
 
 #use "index.ml";
 
@@ -62,7 +60,7 @@ let init s d = do {
   List.iter (fun r -> r.val := s ) linRefs;
   List.iter (fun n -> n.val := 1.0 ) affRefs
 } in
-let sub = makeSub (Id 0) False evars in
+let sub = makeSub evars None in
 let solns = ref 0 in
 let attempt = ref 1 in
 let rec ks v kf = match auto with [
@@ -173,6 +171,13 @@ value rec readFile file lin aff =
         parseFileLine fstr
       } | 
 
+      [(Kwd "#mode",_); (Ident p,_)::_] -> do {
+        Stream.junk fstr; Stream.junk fstr; 
+        let modes = parseModes p fstr in
+        allModes.val := [(p,modes)::allModes.val]; 
+        parseFileLine fstr
+      } |
+
       [(Kwd "#ordered",_); (Ident c,_); (Kwd ".",_)::_] -> do { 
         Stream.junk fstr; Stream.junk fstr; Stream.junk fstr; 
         orderedPreds.val := [c::orderedPreds.val];
@@ -208,28 +213,29 @@ value rec readFile file lin aff =
       [] -> None
     ] 
   in
-  let addIt tKnd tm = 
-  let ins tg =
-    let frms' = residuate tm tg in 
-    let _ = List.iter (fun x -> ignore (insertR ctx x)) frms' in
-    addedFrms.val := [frms'::addedFrms.val] 
+  let addIt tKnd tm evars = 
+    let ins tg =
+      let frms' = residuate' (Some evars) tm tg in 
+      let _ = List.iter (fun x -> ignore (insertR ctx x)) frms' in
+      addedFrms.val := [frms'::addedFrms.val] 
+    in
+    match tKnd with [
+      Linear -> 
+        let newRef = ref (ref (Val (0, Avail 0))) in
+        let _ = ins (Lin newRef) in
+        linRefs.val := [newRef::linRefs.val] |
+      Affine -> 
+        let newRef = ref 1.0 in
+        let _ = ins (Aff newRef) in
+        affRefs.val := [newRef::affRefs.val] |
+      Unrestricted ->  ins (newUnrVal ())
+    ] 
   in
-  match tKnd with [
-    Linear -> 
-      let newRef = ref (ref (Val (0, Avail 0))) in
-      let _ = ins (Lin newRef) in
-      linRefs.val := [newRef::linRefs.val] |
-    Affine -> 
-      let newRef = ref 1.0 in
-      let _ = ins (Aff newRef) in
-      affRefs.val := [newRef::affRefs.val] |
-    Unrestricted ->  ins (newUnrVal ())
-  ] in
   let rec go fstr =
     match parseFileLine fstr with [
       None -> do { Stream.empty fstr } |
       Some x -> match x with [
-        (isLin, Query (f,ty,evs)) -> do { addIt isLin f; go fstr } |
+        (isLin, Query (f,ty,evs)) -> do { addIt isLin f evs; go fstr } |
         (_, Decl c (ty,_,n)) ->
           let n' = if isPred ty then 0 else n in 
           do { mysignature.val := [(c,(ty,n'))::mysignature.val]; go fstr }
@@ -238,20 +244,30 @@ value rec readFile file lin aff =
   in
   let fch = open_in file in
   let oldSig = mysignature.val in
+  let rejectFile () = do {
+    mysignature.val := oldSig; 
+    let rem (x,_,_) = ignore (remove ctx x) in
+    List.iter rem (List.flatten addedFrms.val);
+    close_in fch; 
+    raise BadFile
+  } in
 do {
   try do {
     go (lexer (Stream.of_channel fch));
-    ps 0 (file^" is Ok.\n");
-  } with [
-    Stream.Error e -> 
-      do {mysignature.val := oldSig; ps 0 (e^"\n\n"); close_in fch; raise BadFile} |
+    ps 0 (file^" is Ok.\n\n");
+  } 
+  with [
+    Stream.Error e -> do {
+      ps 0 (e^"\n\n"); 
+      rejectFile()
+    } |
     Stream.Failure -> do {
-      mysignature.val := oldSig; 
-      let rem (x,_,_) = ignore (remove ctx x) in
-      List.iter rem (List.flatten addedFrms.val);
       ps 0 ("Bad File: "^(posStr())^"\n\n"); 
-      close_in fch; 
-      raise BadFile
+      rejectFile() 
+    } |
+    BadMode nm -> do {
+      ps 0 ("Bad mode for "^nm^" at "^(posStr())^"\n\n");
+      rejectFile()
     } |
     e -> do {close_in fch; raise e}
   ];
@@ -277,10 +293,10 @@ let rec go lin aff =
 
     [: `(Kwd "#pwd",_) :] -> 
       do {ps 0 ((Sys.getcwd ())^"\n"); go lin aff} |
-(*
+
     [: `(Kwd "#mode",_); `(Ident p,_); modes = parseModes p :] -> 
       do { allModes.val := [(p,modes)::allModes.val]; go lin aff } |
-*)
+
     [: `(Kwd "#ordered",_); `(Ident p,_) :] -> 
       do { orderedPreds.val := [p::orderedPreds.val]; go lin aff } |
 
@@ -328,21 +344,21 @@ let rec go lin aff =
     } |
 
     [: `(Kwd "#assert",_); (f,ty,evars) = parseTrmLine False :] -> do {
-      List.iter (fun x -> ignore (insert ctx x)) (residuate f (newUnrVal()));
+      List.iter (fun x -> ignore (insert ctx x)) (residuate' (Some evars) f (newUnrVal()));
       go lin aff
     } |
 
     [: `(Kwd "#linear",_); (f,ty,evars) = parseTrmLine False :] ->
       let sref = ref (ref (Val (0,Avail 1))) in
       do {
-        List.iter (fun x -> ignore (insert ctx x)) (residuate f (Lin sref));
+        List.iter (fun x -> ignore (insert ctx x)) (residuate' (Some evars) f (Lin sref));
         go [sref::lin] aff
       } |
 
     [: `(Kwd "#affine",_); (f,ty,evars) = parseTrmLine False :] ->
       let rf = ref 1.0 in
       do {
-        List.iter (fun x -> ignore (insert ctx x)) (residuate f (Aff rf));
+        List.iter (fun x -> ignore (insert ctx x)) (residuate' (Some evars) f (Aff rf));
         go lin [rf::aff]
       } |
 

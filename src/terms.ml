@@ -81,6 +81,7 @@ value rec pushSub sub = fun [
 value rec expose = fun [
   Const nm lvl args -> Const nm lvl args |
   Var nm id args -> Var nm id args |
+  (me as EVar nm rf -1 args) -> me | (*** This is a special EVar for mode-checking ***)
   EVar nm rf lvl args -> match rf.val with [
     Open _ -> EVar nm rf lvl args |
     Inst tm' -> expose (addArgs tm' args)
@@ -145,6 +146,12 @@ value newEVar' prime nm nopt =
 
 value newEVar prime nm nopt = fst (newEVar' prime nm nopt);
 
+
+value makeSub evs lvl = 
+let rec go = fun [
+  [] -> Id 0 |
+  [h::t] -> Sub (newEVar False h lvl) (go t)
+] in go (List.rev evs);
 
 (*************************************** 
 Built-in terms (including formulas)
@@ -375,10 +382,10 @@ Evaluation of integer terms
 ***************************************)
 value eval t = 
 let rec ev = fun [
-  Const "+" _ [a;b] -> ev a + ev b |
-  Const "-" _ [a;b] -> ev a - ev b |
-  Const "*" _ [a;b] -> ev a * ev b |
-  Const n _ [] -> int_of_string n |
+  Const "+" 0 [a;b] -> ev a + ev b |
+  Const "-" 0 [a;b] -> ev a - ev b |
+  Const "*" 0 [a;b] -> ev a * ev b |
+  Const n 0 [] -> int_of_string n |
   (t as ExpSub _ _ []) -> ev (expose t) |
   t -> raise (Failure "int_of_string")
 ] in

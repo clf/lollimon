@@ -17,57 +17,58 @@ Residuate program clause into logically compiled form
 value noResid = ["one";"zero";","; ";"; "sigma"; "!"; "@"; ">"; "=";
 "is"];
 
-(***
-  resid returns a list of ((head,body),isOrdered). A list is necessary
-due to &. EVars are just open bound variables. This is inherited from
-input argument.
-***)
-value rec resid dc =
-let _ = ps 3 ("Residuating: "^(term2str' True dc)^"\n") in
-match expose dc with [
-  Const "-o" 0 [gl; dc] -> 
-    let f = fun [
-      ((hd, Const "one" 0 []),ordered) -> ((hd, gl),ordered) |
-      ((hd, gl'),ordered) -> ((hd, Const "," 0 [gl'; gl]),ordered)
-    ] in
-    List.map f (resid dc) |
+value residuate' chkModeOpt dc tag = 
+  let newEVs = ref [] in
+  (***
+    resid returns a list of ((head,body),isOrdered). A list is necessary
+  due to &. EVars are just open bound variables. This is inherited from
+  input argument.
+  ***)
+  let rec resid dc =
+  let _ = ps 3 ("Residuating: "^(term2str' True dc)^"\n") in
+  match expose dc with [
+    Const "-o" 0 [gl; dc] -> 
+      let f = fun [
+        ((hd, Const "one" 0 []),ordered) -> ((hd, gl),ordered) |
+        ((hd, gl'),ordered) -> ((hd, Const "," 0 [gl'; gl]),ordered)
+      ] in
+      List.map f (resid dc) |
 
-  Const "=>" 0 [gl; dc] -> 
-    let f = fun [
-      ((hd, Const "one" 0 []),ordered) -> ((hd, Const "!" 0 [gl]),ordered) |
-      ((hd, gl'),ordered) -> ((hd, Const "," 0 [gl'; Const "!" 0 [gl]]),ordered)
-    ] in
-    List.map f (resid dc) |
+    Const "=>" 0 [gl; dc] -> 
+      let f = fun [
+        ((hd, Const "one" 0 []),ordered) -> ((hd, Const "!" 0 [gl]),ordered) |
+        ((hd, gl'),ordered) -> ((hd, Const "," 0 [gl'; Const "!" 0 [gl]]),ordered)
+      ] in
+      List.map f (resid dc) |
 
-  Const "-@" 0 [gl; dc] -> 
-    let f = fun [
-      ((hd, Const "one" 0 []),ordered) -> ((hd, Const "@" 0 [gl]),ordered) |
-      ((hd, gl'),ordered) -> ((hd, Const "," 0 [gl'; Const "@" 0 [gl]]),ordered)
-    ] in
-    List.map f (resid dc) |
+    Const "-@" 0 [gl; dc] -> 
+      let f = fun [
+        ((hd, Const "one" 0 []),ordered) -> ((hd, Const "@" 0 [gl]),ordered) |
+        ((hd, gl'),ordered) -> ((hd, Const "," 0 [gl'; Const "@" 0 [gl]]),ordered)
+      ] in
+      List.map f (resid dc) |
 
-  Const "&" 0 [dc1; dc2] -> List.append (resid dc1) (resid dc2) |
+    Const "&" 0 [dc1; dc2] -> List.append (resid dc1) (resid dc2) |
 
-  Const "pi" 0 [dc'] -> match expose dc' with [
-    Lam nm dc [] -> resid dc |
-    _ -> raise (Failure "resid bad pi")
-  ] |
+    Const "pi" 0 [dc'] -> match expose dc' with [
+      Lam nm dc [] -> do {newEVs.val := newEVs.val @ [nm] ; resid dc} |
+      _ -> raise (Failure "resid bad pi")
+    ] |
 
-  (a as Const c 0 args) when not (List.mem c noResid) -> 
-    [((a, Const "one" 0 []),List.mem c orderedPreds.val && not (c = "{}"))] |
+    (a as Const c 0 args) when not (List.mem c noResid) -> 
+      [((a, Const "one" 0 []),List.mem c orderedPreds.val && not (c = "{}"))] |
 
-  f -> raise (Failure "resid") 
-];
-
-value residuate dc tag = 
-  List.map (fun ((hd,bdy),ord) -> (flatterm (hd,Some (bdy,tag)), isUnr tag, ord)) 
-           (resid dc);
-
-value makeSub sub prime evs = 
-let rec go = fun [
-  [] -> sub |
-  [h::t] -> Sub (newEVar prime h None) (go t)
-] in go (List.rev evs);
+    f -> raise (Failure "resid") 
+  ] in
+  let dc' = resid dc in
+do {
+  match chkModeOpt with [
+    None -> () |
+    Some evars -> List.iter (fun ((hd,bdy),_) -> checkMode hd bdy (evars @ newEVs.val)) dc'
+  ];
+  List.map (fun ((hd,bdy),ord) -> (flatterm (hd,Some (bdy,tag)), isUnr tag, ord)) dc'
+};
+value residuate = residuate' None;
 
 (*************************************** 
 Formula Context
