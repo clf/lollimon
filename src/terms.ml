@@ -69,6 +69,7 @@ value rec pushSub sub = fun [
   Var nm id args -> addArgs (lookupSub nm id sub) (subArgs sub args) |
   Lam nm e args -> 
     Lam nm (ExpSub e (Sub (Var nm 1 []) (Comp sub (Id 1))) []) (subArgs sub args) |
+  (me as EVar nm rf -1 args) -> me | (*** This is a special EVar for mode-checking ***)
   EVar nm rf lvl args -> match rf.val with [
     Open _ -> EVar nm rf lvl (subArgs sub args) |
     Inst t -> addArgs (pushSub sub t) (subArgs sub args)

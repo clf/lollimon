@@ -69,7 +69,7 @@ let _ = ps 0 ("checkMode: "^(term2str head)^" | "^(term2str body)^"\n") in
         f m rf; 
         List.iter go args
       } |
-      _ -> raise (Failure "checkMode doEVar") (*** there shouldn't be any real EVars ***)
+      e -> raise (Failure ("checkMode doEVar: "^(term2str' True e))) (*** there shouldn't be any real EVars ***)
     ] in go
   in
   let initEV m rf = match (m,rf.val) with [
@@ -94,9 +94,9 @@ let _ = ps 0 ("initEV m="^(term2str m)^" rf="^(term2str (EVar "?" rf (-2) []))^"
     _ -> raise (Failure "checkMode Head")
   ] in
   let chkArg c isGoal m rf = 
-
+(*
 let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar "?" rf (-2) []))^"\n") in
-
+*)
   match (isGoal, m, rf.val) with [
     (True, Const "-" -2 [], _) -> rf.val := Inst (Const "+" (-2) []) | 
     (True, Const "+" -2 [], Inst (Const "+" -2 [])) -> () |
@@ -109,7 +109,13 @@ let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar 
   ] in
   let rec chkBody isGoal = fun [
     (e as (Lam _ _ [_::_] | ExpSub _ _ _)) -> chkBody isGoal (expose e) |
-    Const ("pi" | "sigma") 0 [e] -> chkBody isGoal e |
+    Const (c as ("pi" | "sigma")) 0 [e] -> match expose e with [
+      Lam nm e [] -> 
+        let isGoal' = if c = "pi" then isGoal else not isGoal in
+        if isGoal' then chkBody isGoal e 
+        else chkBody isGoal (Lam nm e [newEVar False nm (Some (-1))]) |
+      _ -> raise (Failure "checkModes: bad pi")
+    ] |
     Lam _ e [] -> chkBody isGoal e |
     Const ("!" | "@" | "{}") 0 [x] -> chkBody isGoal x |
     Const ("," | ";" | "&") 0 [x;y] -> do {
@@ -119,9 +125,9 @@ let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar 
       if isGoal then do {chkBody (not isGoal) x; chkBody isGoal y} 
       else do {chkBody isGoal y; chkBody (not isGoal) x} |  
     (me as Const c 0 args) -> 
-
+(*
       let _ = ps 0 ("chkBody "^(sob isGoal)^": "^(term2str' True me)^"\n") in
-
+*)
       let mode = try Some (List.assoc c allModes.val) with [
         Not_found -> None
       ] in
@@ -132,8 +138,14 @@ let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar 
     Inst (Const "+" -2 []) -> () |
     _ -> raise (BadMode headName.val)
   ] in
-do {
-  chkHead (ExpSub head sub []);
-  chkBody True (ExpSub body sub []);
-  List.iter isInst outputs.val
-};
+match expose (ExpSub head sub []) with [
+  Const "{}" 0 [head'] -> do {
+    chkBody True (ExpSub body sub []);
+    chkBody False head'
+  } |
+  head' -> do {
+    chkHead head';
+    chkBody True (ExpSub body sub []);
+    List.iter isInst outputs.val
+  }
+];
