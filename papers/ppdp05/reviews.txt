@@ -1,0 +1,170 @@
+Dear Prof. Frank Pfenning:
+
+On behalf of the PPDP 2005 Program Committee, it is my pleasure
+to inform you that the following submission has been accepted 
+to appear at the conference:
+
+     Monadic Concurrent Linear Logic Programming
+
+The reviews and comments are attached below.  Please do your best
+to consider all comments and follow reviewers' advice in revising
+and improving your paper.
+
+You will soon receive instructions directly from the publisher for
+preparing and submitting your final manuscript.
+
+Congratulations and I look forward to seeing you in Lisboa.
+
+Regards,
+Amy Felty 
+PPDP 2005 Program Chair
+
+============================================================================ 
+PPDP 2005 Reviews for Submission #31
+============================================================================ 
+
+Title: Monadic Concurrent Linear Logic Programming
+
+Authors: Pablo Lopez, Frank Pfenning, Jeff Polakow, Kevin Watkins
+============================================================================
+                            REVIEWER #1
+============================================================================ 
+
+                           Reviewer's Scores
+                  -----------------------------------
+
+                                 Ranking: B
+                              Confidence: Y
+                             Originality: 3
+                      Technical Strength: 3
+                            Presentation: 4
+      Appropriateness to the conference:: 5
+
+
+---------------------------------------------------------------------------
+                          Detailed Comments
+---------------------------------------------------------------------------
+
+This paper presents a proof search semantics for LolliMon, an extension of
+Lolli. Lolli is a linear logic programming language permitting backward
+chaining goal-directed proof search. LolliMon extends Lolli by allowing forward
+chaining proof search when proof goals occur inside a 'monad' (denoted
+syntactically by {G}). Thus, LolliMon does the traditional backward-chaining
+proof search for non-monadic goals, but enters the forward-chaining mode when
+it encounters a monadic goal. It remains in this mode until 'saturation' (a
+state in which forward-chaining may be possible but do not lead to any new
+information). After reaching saturation, the proof search reverts to its
+original backward-chaining semantics.
+
+The authors claim that LolliMon is the first language to allow both
+forward-chaining and backward-chaining semantics in the same language. The
+proof search semantics for backward-chaining part are goal-oriented in the
+style pioneered by the original Prolog and formalized by the notion of 'uniform
+proofs'  by Miller, et al.
+
+This language has potential future applications for designing systems which can
+model and reason about concurrent processes (cryptographic protocols or
+biological processes).
+
+============================================================================
+                            REVIEWER #2
+============================================================================ 
+
+                           Reviewer's Scores
+                  -----------------------------------
+
+                                 Ranking: A
+                              Confidence: X
+                             Originality: 4
+                      Technical Strength: 4
+                            Presentation: 5
+      Appropriateness to the conference:: 5
+
+
+---------------------------------------------------------------------------
+                          Detailed Comments
+---------------------------------------------------------------------------
+
+LolliMon is a logic programming language that extends Lolli with all
+connectives of intuitionistic linear logic.
+The use of monads provides a way to nicely integrate synchronous and
+asynchronous connectives
+by dividing proof construction into "stages" (derivations inside/outside a
+monad).
+The notion of staged proof construction has a natural operational counterpart
+in terms of alternations of forward and backward chaining steps during the
+resolution of a goal.
+The new operational interpretation of intuitionistic linear logic is at the
+basis of LolliMon.
+
+This work exploits in an interesting way the combination of monads and of proof
+theoretical results for linear logic to accomodate within the same framework
+aspects of concurrency (forward chaining for asynchronous connectives inside
+the monad) and of logic programming with resources (backward chaining for
+synchronous connectives outside the monad).
+I think that this language proposal represents an important step towards the
+definition of a clear operational semantics for rich extensions of logic
+programming based on linear logic.
+
+An interesting point to investigate could  be the application of similar ideas
+to clarify the meaning of proof systems of classical linear logic like Forum.
+
+Concerning related work, I'd like to point out to the authors some work done by
+Bozzano et al. [1,2] on the bottom-up evaluation of linear logic programs
+(extensions of LO) with techniques similar to what the authors call 
+"saturation" for handling forward chaining inside monads. The evaluation
+strategy in [1,2] computes all logical consequences of a given LO program
+performing some backward chaining steps to handle synchronous connectives.
+
+References:
+
+[1] Marco Bozzano, Giorgio Delzanno, Maurizio Martelli: 
+Model Checking Linear Logic Specifications. 
+TPLP 4(5-6): 573-619 (2004)
+
+[2] Marco Bozzano, Giorgio Delzanno, Maurizio Martelli: 
+An effective fixpoint semantics for linear logic programs. 
+TPLP 2(1): 85-122 (2002)
+
+============================================================================
+                            REVIEWER #3
+============================================================================ 
+
+                           Reviewer's Scores
+                  -----------------------------------
+
+                                 Ranking: A
+                              Confidence: Y
+                             Originality: 5
+                      Technical Strength: 4
+                            Presentation: 5
+      Appropriateness to the conference:: 5
+
+
+---------------------------------------------------------------------------
+                          Detailed Comments
+---------------------------------------------------------------------------
+
+This is a good paper, presenting one of feasible and novel ways to integrate
+control-oriented GHC-like asynchronous communicating processes (which they call
+synchronous, and which only have forward chaining and committed choice, as in
+GHC) inside a LL-based logic programming (which allows e.g. backtracking). A
+central
+idea is to encapsulate the world of processes using monad: outside is "logical"
+in the sense that we have the standard backtracking. This idea is realised by a
+simple typing system, and allows the embedding of, for example, process calculi
+inside the unification-baesd logic programming. 
+
+Typing rules are well-presented, so are examples of embeddings and algorithsms.
+
+Interesting examples include the embedding of the pi-calculus, futures in
+Multi-list sense (which are expressions to be evaluated in future), and a short
+program for checking a bipartite graph.
+
+The use of monad for a similar purpose is standard but its use in this
+particular setting may as well be new. 
+
+More than formal aspects, this paper introduces a charming new programming
+paradigm which includes well-known declarative language constructs as its part.
+I recommend its acceptance.
+
