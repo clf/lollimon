@@ -15,6 +15,7 @@ value parseModes p =
       [: `(Kwd "*",_); res = go typ :] -> [Const "*" (-2) []::res] |
       [: :] -> myfail ()
     ] |
+    Const "pi" 0 [Lam _ typ []] -> go typ |
     _ -> myfail()
   ] in try
   go (fst (List.assoc p mysignature.val))
@@ -49,7 +50,20 @@ let _ = ps 0 ("checkMode: "^(term2str head)^" | "^(term2str body)^"\n") in
   let doEVar f m = (*** do something to each mode EVar ***)
     let rec go = fun [
       (e as (Lam _ _ [_::_] | ExpSub _ _ _)) -> go (expose e) |
-      (Var _ _ args | Const _ _ args) -> List.iter go args |
+      Var _ _ args -> List.iter go args | 
+      Const c 0 args -> 
+        let args' = (*** ignore implicit type variables for mode analysis ***)
+          if useTypes.val then 
+            let n = 
+              try snd (List.assoc c (mysignature.val @ signature.val)) 
+              with [Not_found -> try let _ = int_of_string c in 0
+              with [_ -> raise (Failure ("checkMode undefined constant: "^c))
+              ]] 
+            in
+            nthTail n args 
+          else args 
+        in 
+        List.iter go args' |
       Lam _ dc [] -> go dc |
       EVar _ rf (-1) args -> do {
         f m rf; 
@@ -80,9 +94,9 @@ let _ = ps 0 ("initEV m="^(term2str m)^" rf="^(term2str (EVar "?" rf (-2) []))^"
     _ -> raise (Failure "checkMode Head")
   ] in
   let chkArg c isGoal m rf = 
-(*
+
 let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar "?" rf (-2) []))^"\n") in
-*)
+
   match (isGoal, m, rf.val) with [
     (True, Const "-" -2 [], _) -> rf.val := Inst (Const "+" (-2) []) | 
     (True, Const "+" -2 [], Inst (Const "+" -2 [])) -> () |
@@ -105,9 +119,9 @@ let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar 
       if isGoal then do {chkBody (not isGoal) x; chkBody isGoal y} 
       else do {chkBody isGoal y; chkBody (not isGoal) x} |  
     (me as Const c 0 args) -> 
-(*
+
       let _ = ps 0 ("chkBody "^(sob isGoal)^": "^(term2str' True me)^"\n") in
-*)
+
       let mode = try Some (List.assoc c allModes.val) with [
         Not_found -> None
       ] in
