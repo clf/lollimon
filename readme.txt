@@ -12,7 +12,7 @@ revised OCaml syntax. The code was written by Jeff Polakow.
 
 --------------------------------------------------------
 
-To start system:
+To start system (from lollimon/src directory):
 
   unix_prompt> ocaml camlp4r.cma
   
@@ -35,6 +35,10 @@ The interpreter recognizes the following commands:
 
   2) #fair p              : randomize order in which clauses of predicate p are 
                             selected for backchaining
+
+  2) #cd "directory"      : cd to directory
+
+  2) #pwd                 : print current working directory
 
   2) #include "file"      : load a program, contained in file
 
@@ -146,14 +150,22 @@ type-checking will be incorrect.
 
 Sample session (started from repository directory):
 
+    LolliMon> #cd "/home/jp/lollimon/examples/lolli"
     LolliMon> #load "perm.lo"
+    Looking for 2 solutions to query: perm (1 :: 2 :: nil) L
+    :
+    :
+    Success.
+    perm.lo is Ok.
     LolliMon> tp : type.
     LolliMon> a : tp.
     LolliMon> b : tp.
     LolliMon> perm (a::b::nil) L.
-    Success: [L = b::a::nil]
+    Success 
+    with [L := b :: a :: nil]
     More? y
-    Success: [L = a::b::nil]
+    Success 
+    with [L := a :: b :: nil]
     More? y
     Failure
 

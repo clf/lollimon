@@ -1,3 +1,10 @@
+(*
+  Theorem prover for first-order logic. Uses backward and forward
+chaining and is similar to LolliMon's proof search strategy.
+
+  Author: Jeff Polakow
+*)
+
 trm : type.
 atm : type.
 frm : type.

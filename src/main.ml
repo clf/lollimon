@@ -267,6 +267,12 @@ let rec go lin aff =
   let parseCmd = parser [
     [: `(Kwd "#quit",_) :] -> () |
 
+    [: `(Kwd "#cd",_); `(String dir,_) :] -> 
+      do {Sys.chdir dir; go lin aff} |
+
+    [: `(Kwd "#pwd",_) :] -> 
+      do {ps 0 ((Sys.getcwd ())^"\n"); go lin aff} |
+
     [: `(Kwd "#ordered",_); `(Ident p,_) :] -> 
       do { orderedPreds.val := [p::orderedPreds.val]; go lin aff } |
 

@@ -1,10 +1,9 @@
 (*** 
+  lean connection theorem proving
 
-Adoption of lolliCop for this Lolli implementation which
-  1) doesn't have any extra-logical features (including negation as failure)
-  2) has higher-order terms
+  Author: Jeff Polakow
 
-Here is a signature for (most of) the constants of the following program.
+Adoption of lolliCop for LolliMon making use of higher-order terms.
 ***)
 
 trm : type.

@@ -1,6 +1,7 @@
 (***
  Standard Lolli permute.
 ***)
+
 perm : list T -> list T -> o.
 elm :  T -> o.
 perm1 :  list T -> o.
