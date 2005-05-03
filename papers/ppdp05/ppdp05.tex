@@ -1,7 +1,7 @@
 \documentclass{sig-alt}
 
 \usepackage{proof}
-%\usepackage{palatino}
+\usepackage{palatino}
 \usepackage{array}
 \usepackage{stmaryrd}
 \usepackage{bm}
@@ -288,7 +288,7 @@ S & ::= &  A
 \end{array}
 $$
 
-As in other logic programming languages such as
+As in other typed logic programming languages such as
 $\lambda$Prolog~\cite{Miller86iclp}, object types~$\tau$ are used to
 enforce the well-formedness of the objects of the system being
 modeled.
@@ -688,6 +688,7 @@ $$
        {\GRuleName{\CLFsystem}{\hbox{async}}}
 $$
 
+\newpage
 
 \subsubsection{Right Focusing}
 At some point the derivation transitions from forward chaining to
@@ -741,11 +742,8 @@ The logical rules of LolliMon enjoy the admissibility of
 cut.  This is a consequence of a corresponding theorem
 for the natural deduction formulation of CLF~\cite{Watkins02tr}.
 
-\ignore{
 For reference, appendix~\ref{apx:logical-rules-summary} contains a
 summary of the logical rules underlying LolliMon.
-}
-
 
 \section{Operational Semantics}
 \label{sec:opsem}
@@ -1813,7 +1811,7 @@ P.~L\'{o}pez and J.~Polakow.
   programming.
 \newblock In F.~Baader and A.~Voronkov, editors, {\em Eleventh International
   Conference on Logic for Programming Artificial Intelligence and Reasoning
-  (LPAR'05)}, pages 528--543, Montevideo, Uruguay, Mar. 2005. Springer-Verlag
+  (LPAR'04)}, pages 528--543, Montevideo, Uruguay, Mar. 2005. Springer-Verlag
   LNAI 3452.
 
 \bibitem{Mcallester02jacm}
@@ -1910,10 +1908,14 @@ K.~Watkins, I.~Cervesato, F.~Pfenning, and D.~Walker.
 
 \end{thebibliography}
 
-\appendix
-\section*{Logical Rules Summary}
-\label{apx:logical-rules-summary}
+\clearpage
+
 \onecolumn
+
+\appendix
+\section{Logical Rules Summary}
+\label{apx:logical-rules-summary}
+
 \noindent Syntax:
 $$
 \begin{array}{lll}
@@ -1953,9 +1955,8 @@ $$
   \CLFRFseq{\Gamma}{\Delta}{S} & \hbox{Right focusing} \\
 \end{array}
 $$
-\end{document}
 
-Rules for backward chaining:
+\noindent Rules for backward chaining:
 $$
 \nsrule{\CLFLFseq{\Gamma,A}{\Delta}{A}{P}}
        {\CLFRIseq{\Gamma,A}{\Delta}{P}}
@@ -2027,7 +2028,7 @@ $$
        {\GRuleName{\CLFsystem}{\forall_L}}
 $$
 
-Rules for forward chaining:
+\noindent Rules for forward chaining:
 $$
 \nsrule{\CLFLLFseq{\Gamma,A}{\Delta}{A}{S}}
        {\CLFLseq{\Gamma,A}{\Delta}{S}}
@@ -2040,7 +2041,8 @@ $$
 \nsrule{\CLFLIseq{\Gamma}{\Delta}{S'}{S}}
        {\CLFLLFseq{\Gamma}{\Delta}{\{S'\}}{S}}
        {\GRuleName{\CLFsystem}{\{\}_L}}
-\qquad
+$$
+$$
 \nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
        {\CLFLIseq{\Gamma}{\Delta}{\cdot}{S}}
        {\GRuleName{\CLFsystem}{\rightarrow\rightarrow}}
@@ -2100,8 +2102,7 @@ $$
        {\GRuleName{\CLFsystem}{\bang_L}}
 $$
 
-Right rules for synchronous formulas:
-
+\noindent Right rules for synchronous formulas:
 $$
 \nsrule{}
        {\CLFRFseq{\Gamma}{\cdot}{\one}}
@@ -2116,7 +2117,8 @@ $$
 \nsrule{\CLFRFseq{\Gamma}{\Delta}{[t/x]S}}
        {\CLFRFseq{\Gamma}{\Delta}{\exists x{:}\tau.S}}
        {\GRuleName{\CLFsystem}{\exists_R}}
-\qquad
+$$
+$$
 \nsrule{\CLFRIseq{\Gamma}{\cdot}{A}}
        {\CLFRFseq{\Gamma}{\cdot}{\bang A}}
        {\GRuleName{\CLFsystem}{\bang_R}}
@@ -2125,5 +2127,4 @@ $$
        {\CLFRFseq{\Gamma}{\Delta}{A}}
        {\GRuleName{\CLFsystem}{\Rightarrow>\!\!>}}
 $$
-
 \end{document}
