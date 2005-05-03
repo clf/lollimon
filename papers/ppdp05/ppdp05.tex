@@ -1,7 +1,7 @@
 \documentclass{sig-alt}
 
 \usepackage{proof}
-\usepackage{palatino}
+%\usepackage{palatino}
 \usepackage{array}
 \usepackage{stmaryrd}
 \usepackage{bm}
@@ -197,6 +197,19 @@ attempt combining backward and forward chaining by Harland et
 al.\ \cite{Harland00pstt} is an interesting foundational study of proof
 search, but it is not clear whether it can be realized in a practical
 logic programming language.
+Another item of related work is by Bozzano et al.~\cite{Bozzano04tplp},
+who study a bottom-up logic programming semantics for a fragment of
+classical linear logic in which weakening is admissible.  The proof
+construction procedure is oriented toward complete forward reasoning
+rather than a committed choice non-deterministic operational semantics
+and is therefore more suited for model-checking rather than concurrent
+programming.  Futhermore, it does not include any backward search.  On
+the other hand it incorporates an aspect of saturation which is
+significantly more general than ours in that it allows a whole set of
+affine states to act as a fixpoint, terminating if any transition
+remains in the same set.  It would be interesting to consider if their
+ideas could be applied in our setting to reason about the behavior of
+LolliMon programs in a similar manner.
 
 Our proposal has been implemented as a concrete language we call
 \emph{LolliMon}.  We have programmed numerous running examples,
@@ -1699,8 +1712,9 @@ McAllester~\cite{Ganzinger01ijcar}.
 }
 
 \begin{thebibliography}{50}
-\scriptsize
 \vspace*{0.5mm}
+\scriptsize
+
 \bibitem{Andreoli92}
 J.-M. Andreoli.
 \newblock Logic programming with focusing proofs in linear logic.
@@ -1719,6 +1733,12 @@ Y.~Bekkers and P.~Tarau.
 \newblock In J.Lloyd, editor, {\em Proceedings of the International Symposium
   on Logic Programming (ILPS'95)}, pages 51--65, Portland, Oregon, Dec. 1995.
   MIT Press.
+
+\bibitem{Bozzano04tplp}
+M.~Bozzano, G.~Delzanno, and M.~Martelli.
+\newblock Model checking linear logic specifications.
+\newblock {\em Theory and Practice of Logic Programming}, 4(5--6):573--619,
+  2004.
 
 \bibitem{Cervesato02tr}
 I.~Cervesato, F.~Pfenning, D.~Walker, and K.~Watkins.
@@ -1885,13 +1905,11 @@ K.~Watkins, I.~Cervesato, F.~Pfenning, and D.~Walker.
 
 \end{thebibliography}
 
-\ignore{
 \appendix
-\section{Logical Rules Summary}
+\section*{Logical Rules Summary}
 \label{apx:logical-rules-summary}
-
-\begin{figure*}
-Syntax:
+\onecolumn
+\noindent Syntax:
 $$
 \begin{array}{lll}
 A & ::= &  P 
@@ -1916,7 +1934,7 @@ S & ::= &  A
 \end{array}
 $$
 
-Sequent forms:
+\noindent Sequent forms:
 $$
 \begin{array}{ll}
   \CLFRIseq{\Gamma}{\Delta}{A} & \hbox{Right inversion} \\
@@ -1930,6 +1948,7 @@ $$
   \CLFRFseq{\Gamma}{\Delta}{S} & \hbox{Right focusing} \\
 \end{array}
 $$
+\end{document}
 
 Rules for backward chaining:
 $$
@@ -1944,6 +1963,10 @@ $$
 \nsrule{}
        {\CLFLFseq{\Gamma}{\cdot}{P}{P}}
        {\GRuleName{\CLFsystem}{\hbox{atm}}}
+\qquad
+\nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
+       {\CLFRIseq{\Gamma}{\Delta}{\{S\}}}
+       {\GRuleName{\CLFsystem}{\{\}_R}}
 $$
 $$
 \nsrule{\CLFRIseq{\Gamma,A}{\Delta}{B}}
@@ -1998,11 +2021,6 @@ $$
        {\CLFLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
        {\GRuleName{\CLFsystem}{\forall_L}}
 $$
-$$
-\nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
-       {\CLFRIseq{\Gamma}{\Delta}{\{S\}}}
-       {\GRuleName{\CLFsystem}{\{\}_R}}
-$$
 
 Rules for forward chaining:
 $$
@@ -2017,8 +2035,7 @@ $$
 \nsrule{\CLFLIseq{\Gamma}{\Delta}{S'}{S}}
        {\CLFLLFseq{\Gamma}{\Delta}{\{S'\}}{S}}
        {\GRuleName{\CLFsystem}{\{\}_L}}
-$$
-$$
+\qquad
 \nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
        {\CLFLIseq{\Gamma}{\Delta}{\cdot}{S}}
        {\GRuleName{\CLFsystem}{\rightarrow\rightarrow}}
@@ -2029,6 +2046,10 @@ $$
 $$
 \qquad (Modified left rules for asynchronous connectives)
 $$
+\nsrule{\CLFLIseq{\Gamma}{\Delta,A}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{A,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{async}}}
+\qquad
 \nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}
         \andalso
         \CLFRIseq{\Gamma}{\cdot}{A}}
@@ -2040,8 +2061,6 @@ $$
         \CLFRIseq{\Gamma}{\Delta_2}{A}}
        {\CLFLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
        {\GRuleName{\CLFsystem}{\limp_L}'}
-\qquad
-\hbox{(no $\top_L'$ rule)}
 $$
 $$
 \nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
@@ -2055,6 +2074,8 @@ $$
 \nsrule{\CLFLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
        {\CLFLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
        {\GRuleName{\CLFsystem}{\forall_L}'}
+\qquad
+\hbox{(no $\top_L'$ rule)}
 $$
 $$
 \nsrule{\CLFLIseq{\Gamma}{\Delta}{\Psi}{S}}
@@ -2072,11 +2093,6 @@ $$
 \nsrule{\CLFLIseq{\Gamma,A}{\Delta}{\Psi}{S}}
        {\CLFLIseq{\Gamma}{\Delta}{\bang A,\Psi}{S}}
        {\GRuleName{\CLFsystem}{\bang_L}}
-$$
-$$
-\nsrule{\CLFLIseq{\Gamma}{\Delta,A}{\Psi}{S}}
-       {\CLFLIseq{\Gamma}{\Delta}{A,\Psi}{S}}
-       {\GRuleName{\CLFsystem}{\hbox{async}}}
 $$
 
 Right rules for synchronous formulas:
@@ -2099,16 +2115,10 @@ $$
 \nsrule{\CLFRIseq{\Gamma}{\cdot}{A}}
        {\CLFRFseq{\Gamma}{\cdot}{\bang A}}
        {\GRuleName{\CLFsystem}{\bang_R}}
-$$
-$$
+\qquad
 \nsrule{\CLFRIseq{\Gamma}{\Delta}{A}}
        {\CLFRFseq{\Gamma}{\Delta}{A}}
        {\GRuleName{\CLFsystem}{\Rightarrow>\!\!>}}
 $$
-
-\caption{Summary of LolliMon logical rules}
-\label{fig:logical-rules-summary}
-\end{figure*}
-}
 
 \end{document}
