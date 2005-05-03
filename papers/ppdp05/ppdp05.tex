@@ -211,6 +211,20 @@ remains in the same set.  It would be interesting to consider if their
 ideas could be applied in our setting to reason about the behavior of
 LolliMon programs in a similar manner.
 
+Another item of related work is by Bozzano et al.~\cite{Bozzano04tplp},
+who study a bottom-up logic programming semantics for a fragment of
+classical linear logic in which weakening is admissible.  The proof
+construction procedure is oriented toward complete forward reasoning
+rather than a committed choice non-deterministic operational semantics
+and is therefore more suited for model-checking rather than concurrent
+programming.  Futhermore, it does not include any backward search.  On
+the other hand it incorporates an aspect of saturation which is
+significantly more general than ours in that it allows a whole set of
+affine states to act as a fixpoint, terminating if any transition
+remains in the same set.  It would be interesting to consider if their
+ideas could be applied in our setting to reason about the behavior of
+LolliMon programs in a similar manner.
+        
 Our proposal has been implemented as a concrete language we call
 \emph{LolliMon}.  We have programmed numerous running examples,
 several of which are given in this paper.  From these examples one can
@@ -739,6 +753,11 @@ $$
 The logical rules of LolliMon enjoy the admissibility of
 cut.  This is a consequence of a corresponding theorem
 for the natural deduction formulation of CLF~\cite{Watkins02tr}.
+
+\ignore{
+For reference, appendix~\ref{apx:logical-rules-summary} contains a
+summary of the logical rules underlying LolliMon.
+}
 
 
 \section{Operational Semantics}
@@ -1625,11 +1644,10 @@ unlabeled nodes left we know the graph is bipartite.
 
 First, the top-level iteration.  In order to cut off unnecessary
 iterations, we check for a node labeled both \texttt{a} and \texttt{b}
-first (note use of the \verb@#ordered@ directive).  So
+first.  So
 \texttt{iterate} succeeds if the graph is \emph{not} bipartite.
 
 \begin{small}\begin{verbatim}
-  #ordered iterate.
   iterate o- sigma U \
     !labeled U a, !labeled U b, top.
   iterate o- sigma U \
