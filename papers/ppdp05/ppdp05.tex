@@ -197,19 +197,6 @@ attempt combining backward and forward chaining by Harland et
 al.\ \cite{Harland00pstt} is an interesting foundational study of proof
 search, but it is not clear whether it can be realized in a practical
 logic programming language.
-Another item of related work is by Bozzano et al.~\cite{Bozzano04tplp},
-who study a bottom-up logic programming semantics for a fragment of
-classical linear logic in which weakening is admissible.  The proof
-construction procedure is oriented toward complete forward reasoning
-rather than a committed choice non-deterministic operational semantics
-and is therefore more suited for model-checking rather than concurrent
-programming.  Futhermore, it does not include any backward search.  On
-the other hand it incorporates an aspect of saturation which is
-significantly more general than ours in that it allows a whole set of
-affine states to act as a fixpoint, terminating if any transition
-remains in the same set.  It would be interesting to consider if their
-ideas could be applied in our setting to reason about the behavior of
-LolliMon programs in a similar manner.
 
 Another item of related work is by Bozzano et al.~\cite{Bozzano04tplp},
 who study a bottom-up logic programming semantics for a fragment of
