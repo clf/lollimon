@@ -1916,7 +1916,9 @@ K.~Watkins, I.~Cervesato, F.~Pfenning, and D.~Walker.
 \section{Logical Rules Summary}
 \label{apx:logical-rules-summary}
 
-\noindent Syntax:
+\vspace{0.25cm}
+
+\noindent \textsc{Syntax:}
 $$
 \begin{array}{lll}
 A & ::= &  P 
@@ -1941,7 +1943,7 @@ S & ::= &  A
 \end{array}
 $$
 
-\noindent Sequent forms:
+\noindent \textsc{Sequent forms:}
 $$
 \begin{array}{ll}
   \CLFRIseq{\Gamma}{\Delta}{A} & \hbox{Right inversion} \\
@@ -1956,7 +1958,7 @@ $$
 \end{array}
 $$
 
-\noindent Rules for backward chaining:
+\noindent \textsc{Rules for backward chaining:}
 $$
 \nsrule{\CLFLFseq{\Gamma,A}{\Delta}{A}{P}}
        {\CLFRIseq{\Gamma,A}{\Delta}{P}}
@@ -2028,7 +2030,7 @@ $$
        {\GRuleName{\CLFsystem}{\forall_L}}
 $$
 
-\noindent Rules for forward chaining:
+\noindent \textsc{Rules for forward chaining:}
 $$
 \nsrule{\CLFLLFseq{\Gamma,A}{\Delta}{A}{S}}
        {\CLFLseq{\Gamma,A}{\Delta}{S}}
@@ -2053,10 +2055,6 @@ $$
 $$
 \qquad (Modified left rules for asynchronous connectives)
 $$
-\nsrule{\CLFLIseq{\Gamma}{\Delta,A}{\Psi}{S}}
-       {\CLFLIseq{\Gamma}{\Delta}{A,\Psi}{S}}
-       {\GRuleName{\CLFsystem}{\hbox{async}}}
-\qquad
 \nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}
         \andalso
         \CLFRIseq{\Gamma}{\cdot}{A}}
@@ -2101,8 +2099,13 @@ $$
        {\CLFLIseq{\Gamma}{\Delta}{\bang A,\Psi}{S}}
        {\GRuleName{\CLFsystem}{\bang_L}}
 $$
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta,A}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{A,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{async}}}
+$$
 
-\noindent Right rules for synchronous formulas:
+\noindent \textsc{Right rules for synchronous formulas:}
 $$
 \nsrule{}
        {\CLFRFseq{\Gamma}{\cdot}{\one}}
