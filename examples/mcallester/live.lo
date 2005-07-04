@@ -62,7 +62,6 @@ halt   (l 6).
 print : o.
 test : o.
 
-#ordered print.
 print <= live X L, write (live X L), nl, zero.
 print.
 

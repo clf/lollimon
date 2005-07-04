@@ -167,7 +167,7 @@ and go bvN env x kf ks = match x with [
   [EVar' False nm rf lvl args::idx] -> ks (EVar nm rf lvl args, (idx,env)) kf |
   [EVar' True nm rf lvl args::idx] -> go bvN env idx kf ks |
   [Alt alts] -> goAlts bvN env alts kf ks |
-  x -> raise (Failure "nextTrm")
+  x -> raise (Failure ("nextTrm: "^(idx2str 0 x)))
 ] in
 go (0,[]) env idx kf ks;
 
@@ -309,7 +309,10 @@ value findIdx idx c =
     [h::t] -> if h = c then Some t else None
   ]
   and goAlt = fun [
-    [h::t] -> match go h with [None -> goAlt t | x -> x] |
+    [h::t] -> match go h with [
+      None -> goAlt t | 
+      Some x -> let y = goAlt t in match y with [None -> Some x | Some y -> Some [Alt [x; y]]]
+    ] |
     [] -> None
   ] in
   match go idx with [None -> [] | Some x -> x];
@@ -342,53 +345,56 @@ let rec go = fun [
 go a;
 
 value rec insert' reverse idx (tm, isUnr, ordered) = 
-(** let _ = ps 0 ("inserting: "^(index2str 0 [tm])^" ordered:"^(sob ordered)^"\n") in **)
-let inj x = Some x in
-let bind a f = match a with [
-  None -> None |
-  Some x -> f x
-] in
-let changed = ref False in
-let rec insAlt (alts,tm) = 
-  let alts = if reverse then List.rev alts else alts in
-match (alts,tm) with [
-  ([],tm) -> None |
-  ([alt::alts], tm) -> match ins False (alt,tm) with [
-    None -> 
-      if ordered then do {
-        changed.val := True;
-        inj (if reverse then [alt::alts]@[tm] else [tm;alt::alts])
-      }
-      else bind (insAlt (alts,tm)) (fun x -> inj [alt::x]) |
-    Some x -> inj (if reverse then (alts@[x]) else [x::alts])
-  ]
-] 
-and ins noFail = fun [
-  ([Alt alts],tm) -> match insAlt (alts,tm) with [
-    Some x -> inj [Alt x] |
-    None -> do { changed.val := True; inj [Alt [tm::alts]] }
-  ] |
-  ([Body :: gls],[Body :: gl]) -> bind (ins True (gls,gl)) (fun x -> inj [Body::x]) |
-  ([Leaf lf],[Leaf lf']) ->
-    if subset lf' lf && not ordered && isUnr then inj [Leaf lf]
-    else do { changed.val := True; inj [Leaf (lf' @ lf)] } |
-  ([EVar' False nm rf lvl args::t1], tm2) when isInst rf.val ->
-    let tm1 = flatterm (EVar nm rf lvl args, None) in
-    bind (ins True (tm1 @ t1, tm2)) (fun x -> inj [EVar' True nm rf lvl args::x]) |
-  ([(h1 as EVar' True _ _ _ _)::t1], t2) -> bind (ins noFail (t1,t2)) (fun x -> inj [h1::x]) |
-  ([h::t],[h'::t']) -> 
-    if idxEq (h, h') then bind (ins True (t,t')) (fun x -> inj [h::x]) 
-    else if noFail then 
-      let alts = if reverse then [[h::t];[h'::t']] else [[h'::t']; [h::t]] in
-      do {changed.val := True; inj [Alt alts]} 
-    else None |
-  _ -> raise (Failure "insert")
-] in do {
-  idx.val := 
-    match ins False ([Alt idx.val], tm) with 
-      [Some [Alt x] -> x | _ -> raise (Failure "insert1")];
-  changed.val
-};
+(*
+let _ = ps 0 ("inserting: "^(index2str 0 [tm])^" ordered:"^(sob ordered)^"\n") in
+*)
+  let inj x = Some x in
+  let bind a f = match a with [
+    None -> None |
+    Some x -> f x
+  ] in
+  let changed = ref False in
+  let rec insAlt (alts,tm) = 
+    let alts = if reverse then List.rev alts else alts in
+    match (alts,tm) with [
+      ([],tm) -> None |
+      ([alt::alts], tm) -> match ins False (alt,tm) with [
+        None -> 
+          if ordered then do {
+            changed.val := True;
+            inj (if reverse then [alt::alts]@[tm] else [tm;alt::alts])
+          }
+          else bind (insAlt (alts,tm)) (fun x -> inj [alt::x]) |
+        Some x -> inj (if reverse then (alts@[x]) else [x::alts])
+      ]
+    ] 
+  and ins noFail = fun [
+    ([Alt alts],tm) -> match insAlt (alts,tm) with [
+      Some x -> inj [Alt x] |
+      None -> do { changed.val := True; inj [Alt [tm::alts]] }
+    ] |
+    ([Body :: gls],[Body :: gl]) -> bind (ins True (gls,gl)) (fun x -> inj [Body::x]) |
+    ([Leaf lf],[Leaf lf']) ->
+      if subset lf' lf && not ordered && isUnr then inj [Leaf lf]
+      else do { changed.val := True; inj [Leaf (lf' @ lf)] } |
+    ([EVar' False nm rf lvl args::t1], tm2) when isInst rf.val ->
+      let tm1 = flatterm (EVar nm rf lvl args, None) in
+      bind (ins True (tm1 @ t1, tm2)) (fun x -> inj [EVar' True nm rf lvl args::x]) |
+    ([(h1 as EVar' True _ _ _ _)::t1], t2) -> bind (ins noFail (t1,t2)) (fun x -> inj [h1::x]) |
+    ([h::t],[h'::t']) -> 
+      if idxEq (h, h') then bind (ins True (t,t')) (fun x -> inj [h::x]) 
+      else if noFail then 
+        let alts = if reverse then [[h::t];[h'::t']] else [[h'::t']; [h::t]] in
+        do {changed.val := True; inj [Alt alts]} 
+      else None |
+    _ -> raise (Failure "insert")
+  ] in 
+  do {
+    idx.val := 
+      match ins False ([Alt idx.val], tm) with 
+        [Some [Alt x] -> x | _ -> raise (Failure "insert1")];
+    changed.val
+  };
 
 value insert idx x =  insert' False idx x;
 value insertR idx x= insert' True idx x;

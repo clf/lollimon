@@ -51,7 +51,8 @@ let _ = ps 0 ("checkMode: "^(term2str head)^" | "^(term2str body)^"\n") in
     let rec go = fun [
       (e as (Lam _ _ [_::_] | ExpSub _ _ _)) -> go (expose e) |
       Var _ _ args -> List.iter go args | 
-      Const c (0 | -1) args -> 
+      Const c (-1) [] -> () | 
+      Const c 0 args -> 
         let args' = (*** ignore implicit type variables for mode analysis ***)
           if useTypes.val then 
             let n = 

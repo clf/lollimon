@@ -215,7 +215,7 @@ value rec readFile file lin aff =
   in
   let addIt tKnd tm evars = 
     let ins tg =
-      let frms' = residuate' (Some evars) tm tg in 
+      let frms' = residuate' False (Some evars) tm tg in 
       let _ = List.iter (fun x -> ignore (insertR ctx x)) frms' in
       addedFrms.val := [frms'::addedFrms.val] 
     in
@@ -344,21 +344,21 @@ let rec go lin aff =
     } |
 
     [: `(Kwd "#assert",_); (f,ty,evars) = parseTrmLine False :] -> do {
-      List.iter (fun x -> ignore (insert ctx x)) (residuate' (Some evars) f (newUnrVal()));
+      List.iter (fun x -> ignore (insert ctx x)) (residuate' False (Some evars) f (newUnrVal()));
       go lin aff
     } |
 
     [: `(Kwd "#linear",_); (f,ty,evars) = parseTrmLine False :] ->
       let sref = ref (ref (Val (0,Avail 1))) in
       do {
-        List.iter (fun x -> ignore (insert ctx x)) (residuate' (Some evars) f (Lin sref));
+        List.iter (fun x -> ignore (insert ctx x)) (residuate' False (Some evars) f (Lin sref));
         go [sref::lin] aff
       } |
 
     [: `(Kwd "#affine",_); (f,ty,evars) = parseTrmLine False :] ->
       let rf = ref 1.0 in
       do {
-        List.iter (fun x -> ignore (insert ctx x)) (residuate' (Some evars) f (Aff rf));
+        List.iter (fun x -> ignore (insert ctx x)) (residuate' False (Some evars) f (Aff rf));
         go lin [rf::aff]
       } |
 

@@ -17,7 +17,7 @@ Residuate program clause into logically compiled form
 value noResid = ["one";"zero";","; ";"; "sigma"; "!"; "@"; ">"; "=";
 "is"];
 
-value residuate' chkModeOpt dc tag = 
+value residuate' forwardChain chkModeOpt dc tag = 
   let newEVs = ref [] in
   (***
     resid returns a list of ((head,body),isOrdered). A list is necessary
@@ -56,7 +56,10 @@ value residuate' chkModeOpt dc tag =
     ] |
 
     (a as Const c 0 args) when not (List.mem c noResid) -> 
+      [((a, Const "one" 0 []), not (c = "{}" || forwardChain))] |
+(*
       [((a, Const "one" 0 []),List.mem c orderedPreds.val && not (c = "{}"))] |
+*)
 
     f -> raise (Failure "resid") 
   ] in
@@ -68,7 +71,8 @@ do {
   ];
   List.map (fun ((hd,bdy),ord) -> (flatterm (hd,Some (bdy,tag)), isUnr tag, ord)) dc'
 };
-value residuate = residuate' None;
+value residuate = residuate' False None;
+value residuateF = residuate' True None;
 
 (*************************************** 
 Formula Context
@@ -352,7 +356,7 @@ let _ = ps 0 ("solving monadic goal: "^(term2str goal)^"\n") in
         let dOld = fst (getval d) in
         let kf' x = 
 (*
-  let _ = ps 0 ("forward failed with: "^(fail2str x)^"\n") in
+let _ = ps 0 ("forward failed with: "^(fail2str x)^"\n") in
 *)
           match x with [
           Fail x -> forward al ar dl dr s d goal again addedFrms cls banned kf ks |
@@ -492,7 +496,7 @@ let _ = ps 0 "second branch of ;\n" in
             Affine -> Aff (ref ar) |
             Linear -> Lin (ref s)
           ] in
-          let frm' = residuate frm frmTag in
+          let frm' = residuateF frm frmTag in
           let _ = ps 3 ("monadic add: "^(term2str' True frm)^"\n") in
           pushCtx frm' kf (fun changed' kf -> 
 (*

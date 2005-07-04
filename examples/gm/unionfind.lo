@@ -121,7 +121,6 @@ parent X Y
 (* Examining the internal state *)
 (* because of spurious non-determinism this will have multiple solutions *)
 print : o.
-#ordered print.
 print o- size X K, write (size X K), nl, print.
 print o- parent X Y, write (parent X Y), nl, print.
 print.

@@ -158,6 +158,7 @@ evaluate_linear (let (s z) (one \ s one)) V, V = s (s z).
 #query 0 1 1
 evaluate (newref (s z)) V. (* fails since V contains new parameter *)
 
+(*
 #query 1 2 1
 evaluate_affine (deref (newref (s z))) V, V = (s z).
 
@@ -175,4 +176,4 @@ evaluate_affine (let (newref (s z)) r \ let (assign r z) x \ deref r) V, V = z.
 
 #query 1 2 1
 evaluate_collect (let (newref (s z)) r \ let (assign r z) x \ deref r) V, V = z.
-
+*)

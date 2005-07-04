@@ -131,7 +131,6 @@ assert : prop -> o.
 step A <= seq G R, (thaw 1 G R -o {infer 1 -o {assert A}}).
 step A <= seq G1 R1, seq G2 R2, (thaw 1 G1 R1 -o thaw 2 G2 R2 -o {infer 2 -o {assert A}}).
 
-#ordered assert.
 (* if no frozen sequent was generated, we must try another inference *)
 assert A o- frozen P nil A, write "Derived goal sequent: ",
             write (seq nil A), nl.

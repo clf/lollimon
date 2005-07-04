@@ -38,7 +38,6 @@ unlabeled U
 -o {one}.
 
 (* to see assigned labels *)
-#ordered print.
 print : o.
 print <= !labeled U K, write (labeled U K), nl, zero.
 print <= write "--all labeled nodes printed--", nl.
@@ -48,7 +47,6 @@ iterate : o.
 
 notbipartite Us <= {init Us -o {iterate}}.
 
-#ordered iterate.
 iterate o- sigma U \ !labeled U a, !labeled U b, top.
 iterate o- sigma U \ unlabeled U, (labeled U a => {iterate}). (* Rule B6 *)
 

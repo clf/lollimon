@@ -53,7 +53,6 @@ dist V Dv,
     dist V Dv}.
 
 print : o.
-#ordered print.
 print o- once(dist U Du), write (dist U Du), nl, print.
 print.
 
@@ -63,7 +62,6 @@ loop K (zero) o- (loopdetect -o {loopdetect,  (* consumes (edge K U C V) *)
                                  print}).     (* consumes (dist U Du) *)
 
 init' : nat -> o.
-#ordered init'.
 init' N o- once (vertex V), (dist V (infinity) -o init' (succ N)).
 init' N o- loop zero N.
 

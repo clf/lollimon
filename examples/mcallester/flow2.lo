@@ -87,7 +87,6 @@ evalsto L' (lpair L1 L2)
 => {!stepsto L L2}.
 
 (* top-level interface *)
-#ordered print.
 print : o.
 print <= lterm L T, write (lterm L T), nl, zero.
 print <= evalsto E E', write (evalsto E E'), nl, zero.

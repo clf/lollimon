@@ -25,47 +25,45 @@ If you want to turn off type-checking, use "go False" to start the system.
 
 The interpreter recognizes the following commands:
 
-  0) identifier : kind    : add declaration to user-defined signature
+  identifier : kind    : add declaration to user-defined signature
 
-  0) identifier : type    : add declaration to user-defined signature
+  identifier : type    : add declaration to user-defined signature
 
-  1) any formula f        : try to prove f with current program context
+  any formula f        : try to prove f with current program context
 
-  2) #ordered p           : preserve order of clauses for predicate p
-
-  2) #fair p              : randomize order in which clauses of predicate p are 
+  #fair p              : randomize order in which clauses of predicate p are 
                             selected for backchaining
 
-  2) #cd "directory"      : cd to directory
+  #cd "directory"      : cd to directory
 
-  2) #pwd                 : print current working directory
+  #pwd                 : print current working directory
 
-  2) #include "file"      : load a program, contained in file
+  #include "file"      : load a program, contained in file
 
-  2) #load "file"         : #clear followed by #include
+  #load "file"         : #clear followed by #include
 
-  2) #query e l a f       : expect 'e' solutions to query 'f'. look for at most 'l' solutions;
+  #query e l a f       : expect 'e' solutions to query 'f'. look for at most 'l' solutions;
                             attempt this query 'a' times.
 
-  3) #context             : print the current program context (in logically compiled form).
+  #context             : print the current program context (in logically compiled form).
 
-  3) #signature           : prints the current user-defined signature
+  #signature           : prints the current user-defined signature
 
-  3) #allsig              : prints the current user-defined signature and builtin signature
+  #allsig              : prints the current user-defined signature and builtin signature
 
-  4) #clear               : empties the program context and user-defined signature
+  #clear               : empties the program context and user-defined signature
 
-  4) #clearctx            : empties the program context
+  #clearctx            : empties the program context
 
-  4) #clearsig            : empties the user-defined signature
+  #clearsig            : empties the user-defined signature
 
-  5) #assert f            : adds formula f to the unrestricted context
+  #assert f            : adds formula f to the unrestricted context
 
-  5) #linear f            : adds formula f to the linear context
+  #linear f            : adds formula f to the linear context
 
-  5) #affine f            : adds formula f to the affine context
+  #affine f            : adds formula f to the affine context
 
-  6) #quit                : quits LolliMon interpreter
+  #quit                : quits LolliMon interpreter
 
 Formulas, and types, must end in a period.
 
@@ -120,10 +118,6 @@ Notes:
 > 'e' then the declaration fails if more than 'e' solutions exist. The
 system will try this declaration at most 'a' times before really
 failing. Thus Twelf's '%query 1 * q' = '#query 1 2 1 q'.
-
-  By default, the system does not remember the order of clauses. Only
-predicates which have been explicitly declared as ordered will 
-necessarily be tried in order.
 
   All clauses in a program file will be loaded into the unrestricted
 context unless the clause is preceded by '#linear', or '#affine'. 

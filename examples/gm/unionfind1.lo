@@ -104,7 +104,6 @@ pr : T -> T -> state T.
 collect : list (state T) -> o.
 
 coll : list (state T) -> o.
-#ordered coll. (* coll must be ordered because of affine state *)
 coll (sz X K::S) o- size X K, coll S.
 coll (pr X Y::S) o- parent X Y, coll S.
 coll nil.

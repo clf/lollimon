@@ -77,7 +77,6 @@ pr Incr nil :- incr Incr => p 1.
 pr Incr ((ground Cla) :: Mat) :- cl (ground Cla) -o pr Incr Mat.
 pr Incr ((quant Cla) :: Mat) :- cl (quant Cla) => pr true Mat.
 
-#ordered p.
 p PathLim :- write (p PathLim), nl,
     cl Cla , 
     inst Cla Cla1,  
@@ -214,7 +213,6 @@ distr3 A1 (quant A2) (quant A) :- pi x \ distr3 A1 (A2 x) (A x).
 sk : (list trm) -> int -> int -> trm.
 
 dnf : trm -> frm -> list disjunct -> o.
-#ordered dnf.
 
 dnf Sk (neg (neg F)) G :- dnf Sk F G.
 dnf Sk (neg (and F G)) H :- dnf Sk (or (neg F) (neg G)) H.
