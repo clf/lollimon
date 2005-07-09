@@ -1,0 +1,100 @@
+(*
+   Call-by-name and futures
+   Example from "Monadic Concurrent Linear Logic Programming"
+   Lopez, Pfenning, Polakow, and Watkins, submitted Feb 2005
+
+   Buggy futures changed to call-by-need application. --Jeff
+*)
+
+exp : type.			(* expressions *)
+frame : type.			(* frames *)
+dest : type.			(* destinations *)
+
+eval : exp -> dest -> o.	(* evaluate an expression *)
+comp : frame -> dest -> o.	(* compute a frame *)
+return : exp -> dest -> o.	(* return value to destination *)
+
+evaln : exp -> dest -> o.       (* count amount of evaluations *)
+work : int -> o.                (* evaluation counter state *)
+
+evaln E D,
+work N, 
+N' is N + 1
+-o {work N', eval E D}.
+
+(* functions, with call-by-name *)
+lam : (exp -> exp) -> exp.	(* lambda-abstraction *)
+app : exp -> exp -> exp.	(* application *)
+
+eval (lam x \ E x) D
+-o {return (lam x \ E x) D}. 
+
+app1 : dest -> exp -> frame.
+
+eval (app E1 E2) D
+-o {sigma d1 \ evaln E1 d1, comp (app1 d1 E2) D}.
+
+return (lam x \ E1' x) D1,
+comp (app1 D1 E2) D
+-o {evaln (E1' E2) D}.
+
+
+app' : exp -> exp -> exp.       (* cbn application *)
+app1' : dest -> exp -> frame.
+app2' : exp -> frame.
+lookup : dest -> exp.		(* lookup p, p a destination *)
+memo : dest -> frame.
+
+eval (app' E1 E2) D
+-o {sigma d1 \ evaln E1 d1, comp (app1' d1 E2) D}.
+
+return (lam E1') D1,
+comp (app1' D1 E2) D
+-o {sigma d \ evaln (E1' (lookup d)) D, comp (app2' E2) d}.
+
+return V P,
+eval (lookup P) D
+-o {return V D}.
+
+comp (app2' E) D
+-o {sigma d \ evaln E d, comp (memo D) d}.
+
+return V D2,
+comp (memo D) D2
+-o {!return V D}.
+
+
+(* top-level evaluation predicate *)
+evaluate : exp -> o.
+
+evaluate E o- (pi d0 \ 
+  work 0 -o evaln E d0 -o {sigma V \ work N, return V d0, write V, nl, write (work N), nl}
+).
+
+(* examples *)
+(*
+First examples are small enough that call-by-need overhead is more expensive, 
+using above counting system, than call-by-name.
+
+evaluate (app (lam x \ x) (lam z \ z)).  (* work= 3 *)
+evaluate (app' (lam x \ x) (lam z \ z)).  (* work= 4 *)
+
+evaluate (app (lam x \ app x x) (app (lam z \ z) (lam y \ y))). (* work= 9 *)
+evaluate (app' (lam x \ app' x x) (app' (lam z \ z) (lam y \ y))). (* work= 10 *)
+
+But note that:
+evaluate (app' (lam x \ app x x) (app (lam z \ z) (lam y \ y))). (* work= 8 *)
+
+
+Next examples show value of call-by-need.
+
+evaluate (app (lam x \ app x (app x x)) (app (lam z \ (app z z)) (lam y \ y))).
+work = 19
+evaluate (app' (lam x \ app' x (app' x x)) (app' (lam z \ (app' z z)) (lam y \ y))).
+work = 16
+
+evaluate (app (lam x \ app x (app x x)) (app (lam z \ app (app z z) z) (lam y \ y))).
+work = 25
+evaluate (app' (lam x \ app' x (app' x x)) (app' (lam z \ app' (app' z z) z) (lam y \ y))).
+work = 19
+*)

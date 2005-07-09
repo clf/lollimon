@@ -128,7 +128,7 @@ let kf msg = do { ps 4 ("Failed goal: "^(term2str' True gl)^"\n"); kf msg} in
 let _ = ps 4 ("\nSolving goal: "^(term2str' True gl)^"\n") in
 let _ = ps 5 ("s="^(tag2str s.val)^" d="^(tag2str d.val)^
               "   al="^(sof al)^" ar="^(sof ar)^"\n") in
-let _ = showLin None 2 in
+let _ = showLin None 4 in
 match gl with [
   Var _ _ _ -> raise (Failure "bound variable goal") | 
   EVar _ _ _ _ -> kf (Problem "variable goal") |
@@ -144,7 +144,7 @@ match gl with [
       ps 1 ("\nSolving goal: "^(term2str' True (normalize gl))^"\n");
       ps 2 ("s="^(tag2str s.val)^" d="^(tag2str d.val)^
             "   al="^(sof al)^" ar="^(sof ar)^"\n");
-      showLin None 2 
+      showLin None 2
    }
   in
   let kf = 

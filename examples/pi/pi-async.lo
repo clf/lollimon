@@ -28,9 +28,9 @@ proc (print U), write U, nl -o {one}.
 (****
 Examples:
 
-pi a \ pi b \ proc (par (in a u \ print u) (out a b)) -o {one}.
+pi a \ pi b \ proc (par (in a (u \ print u)) (out a b)) -o {one}.
 
 pi a \ pi b \ 
-  proc (par (in a u \ print u) (par (in a v \ print a) (out a b))) -o {top}.
+  proc (par (in a (u \ print u)) (par (in a (v \ print a)) (out a b))) -o {top}.
 
 ****)

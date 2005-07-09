@@ -2,6 +2,9 @@
    Call-by-name and futures
    Example from "Monadic Concurrent Linear Logic Programming"
    Lopez, Pfenning, Polakow, and Watkins, submitted Feb 2005
+
+   The futures code is incorrect. See call-by-need.lo for a similar
+   example of linear destination passing style. -- Jeff Polakow
 *)
 
 exp : type.			(* expressions *)
