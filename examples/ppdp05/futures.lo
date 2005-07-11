@@ -3,8 +3,9 @@
    Example from "Monadic Concurrent Linear Logic Programming"
    Lopez, Pfenning, Polakow, and Watkins, submitted Feb 2005
 
-   The futures code is incorrect. See call-by-need.lo for a similar
-   example of linear destination passing style. -- Jeff Polakow
+   The futures code in the paper has a bug which is fixed below.
+   See also call-by-need for another example of linear destination passing
+   style.
 *)
 
 exp : type.			(* expressions *)
@@ -36,7 +37,6 @@ future : exp -> exp.		(* future e *)
 
 promise : dest -> exp.		(* promise p, p a destination *)
 future1 : dest -> frame.
-promise1 : dest -> frame.
 
 eval (future E) D
 -o {sigma d1 \ sigma p \
@@ -48,10 +48,10 @@ comp (future1 D1) P
 -o {!return V P}.
 
 eval (promise P) D
--o {comp (promise1 P) D}.
+-o {return (promise P) D}.
 
 !return V1 P,
-comp (promise1 P) D
+return (promise P) D
 -o {return V1 D}.
 
 (* top-level evaluation predicate *)
