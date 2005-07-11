@@ -37,11 +37,6 @@ labeled : node -> partition -> o.
 unlabeled U
 -o {one}.
 
-(* to see assigned labels *)
-print : o.
-print <= !labeled U K, write (labeled U K), nl, zero.
-print <= write "--all labeled nodes printed--", nl.
-
 notbipartite : list node -> o.
 iterate : o.
 
@@ -59,6 +54,7 @@ n6 : node.
 
 (*
 edge n1 n2 => edge n1 n3 => edge n2 n3 => notbipartite (n1::n2::n3::nil).
+
 edge n1 n2 => edge n1 n3 => notbipartite (n1::n2::n3::nil). (* should fail *)
 edge n1 n3 => edge n2 n4 => edge n5 n6 => notbipartite (n1::n2::n3::n4::n5::n6::nil). (* should fail *)
 edge n1 n3 => edge n3 n4 => edge n2 n4 => edge n5 n6 => notbipartite (n1::n2::n3::n4::n5::n6::nil). (* should fail *)

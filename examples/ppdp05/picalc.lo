@@ -25,5 +25,11 @@ proc (out C V) -o {msg C V}.
 proc (in C x \ P x) -o {pi V \ msg C V -o {proc (P V)}}.
 proc (rin C x \ P x) -o {!pi V \ msg C V -o {proc (P V)}}.
 
-#query 1 2 5
-pi c \ pi x \ proc (par (out c x) (in c y \ zero)) -o {one}.
+print : chan -> expr.  (** for tracing **)
+proc (print U), write U, nl, nl -o {one}.
+
+(*** example
+
+proc (par (in a (u \ print u)) (par (in a (v \ print a)) (out a b))) -o {top}.
+
+***)
