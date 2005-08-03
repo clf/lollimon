@@ -17,3 +17,4 @@ pca - proof-carrying authorization infrastructure specification
 pi - pi-calculus
 ppdp05 - example from paper submitted to PPDP'05;
          see http://www.cs.cmu.edu/~fp/papers/mcllp05.pdf
+rt - role-based trust management examples from [Li et al, JCS 2003]

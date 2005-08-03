@@ -1,0 +1,185 @@
+(***
+
+  "Distributed Credential Chain Discovery in Trust Management" by Li,
+Winsborough, and Mitchell.
+
+  Implementation of backward search algorithm (section 3.4) by Jeff
+Polakow.
+
+***)
+
+(*
+  Solution monitors are implicit on every edge. Relies on saturation
+to stop forwarding solutions via monitors.
+
+  Solution for a node E (the set of entity nodes which can reach E) is
+represented as individual assumptions, one for each element of
+solution. This allows the use of LolliMon forward chaining and
+saturation.
+
+  Credentials and constructed proof graph stored in unrestricted
+context.
+
+*)
+
+entity : type.
+role_name : type.
+
+role_expr : type.
+^ : entity -> role_expr.
+role : entity -> role_name -> role_expr.
+linked_role : entity -> role_name -> role_name -> role_expr.
+inter : list role_expr -> role_expr.
+
+credential : entity -> role_name -> role_expr -> o.
+
+(*** 
+
+  Credential set from Figure 2 
+
+***)
+a : entity.
+b : entity.
+d : entity.
+r0 : role_name.
+r1 : role_name.
+r2 : role_name.
+r3 : role_name.
+credential a r0 (linked_role a r1 r2).
+credential a r0 (^ a).
+credential a r1 (role b r1).
+credential a r1 (role a r0).
+credential b r1 (role a r0).
+credential b r1 (^ d).
+credential d r2 (^ b).
+credential b r0 (role a r0).
+credential d r1 (linked_role d r2 r3).
+
+node : role_expr -> o.
+soln : role_expr -> entity -> o.
+edge : role_expr -> role_expr -> o.
+
+(** solution monitor **)
+edge N1 N2 => soln N1 E => {!soln N2 E}.
+
+
+(***********************************************
+
+  Pure rewriting version. Relies solely on saturation and thus
+attempts to do redundant node processing. Handling of intersections is
+much less efficient/direct than original algorithm since it must
+create all of the "sub-intersection" nodes.
+
+***********************************************)
+node (role A R) =>
+credential A R RE => 
+{!node RE, !edge RE (role A R)}.
+
+node (^ A) => 
+{!soln (^ A) A}.
+
+node (linked_role A R1 R2) =>
+{!node (role A R1), 
+ !(pi B \ soln (role A R1) B => 
+          {!node (role B R2), !edge (role B R2) (linked_role A R1 R2)}
+  )
+}.
+
+node (inter (F::Fs)) =>
+{!node F, !node (inter Fs),
+ !(pi D \ soln F D => soln (inter Fs) D => {!edge (^ D) (inter (F::Fs))})
+}.
+
+soln (inter nil) D.
+
+(** Example query (figure 2 in paper)
+
+node (role a r0) => {write_ctx}. 
+
+write_ctx is a "hidden" builtin predicate to dump the current context.
+**)
+
+
+(***********************************************
+
+  Version using linearity to control algorithm. Keeps list of
+processed nodes as linear assumption and checks that a node is not in
+this list before processing. Note that this version does not force the
+nodes to be processed in any particular order.
+  Note process is a backchaining predicate; it also uses non-logical
+"once" to implement notElem.
+  Uses node' to not interfere with previous specification's clauses.
+
+  The performance of this version is horrible. I am not sure if the
+problem is in the specification or if there is a bug in LolliMon. I
+will look into this more carefully.
+
+***********************************************)
+node' : role_expr -> o.
+processed : list role_expr -> o.
+process : role_expr -> list role_expr -> o.
+bool : type.
+true : bool.
+false : bool.
+notDone : role_expr -> list role_expr -> bool -> o.
+
+process RE (RE::Nodes) 
+  <= node' RE 
+  o- processed Nodes 
+  <= once (notDone RE Nodes Result)
+  <= Result = true.
+
+notDone RE (RE::Nodes) false.
+notDone RE (N::Nodes) Res <= notDone RE Nodes Res.
+notDone RE nil true.
+
+process (role A R) Nodes -o
+{
+ !(pi RE \ credential A R RE => {!node' RE, !edge RE (role A R)}), 
+ processed Nodes
+}.
+
+process (^ A) Nodes -o
+{!soln (^ A) A, 
+ processed Nodes
+}.
+
+process (linked_role A R1 R2) Nodes -o
+{!node' (role A R1), 
+ !(pi B \ soln (role A R1) B => 
+          {!node' (role B R2), !edge (role B R2) (linked_role A R1 R2)}
+  ),
+ processed Nodes
+}.
+
+id : type.
+intersect : id -> entity -> o.
+doInter : id -> list role_expr -> o.
+
+process (inter Fs) Nodes -o
+{sigma x \ 
+   !(pi D \ intersect x D => {!edge (^ D) (inter Fs)}),
+   doInter x Fs, 
+   processed Nodes
+}.
+
+doInter X nil -o {!(pi D \ intersect X D)}.
+doInter X (F::Fs) -o 
+{sigma x \
+   !(pi D \ soln F D => intersect x D => {!intersect X D}),
+   doInter x Fs
+}.
+
+(** Example query
+
+processed nil -o node' (role a r0) => {processed Nodes, write_ctx}.
+
+**)
+
+
+
+
+
+
+
+

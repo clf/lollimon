@@ -17,7 +17,7 @@ Lexer
 value lexer = make_lexer ["is"] [
 "#quit"; "#cd"; "#pwd"; 
 "#trace"; 
-"#ordered"; "#fair"; "#mode";
+"#unordered"; "#fair"; "#mode";
 "#query"; 
 "#context"; "#clearctx"; "#contextl";
 "#allsig"; "#signature"; "#clearsig"; 

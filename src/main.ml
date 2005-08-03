@@ -12,7 +12,7 @@ Author: Jeff Polakow
 value useTypes = ref False;
 
 (*** list of predicates whose clause order should be remembered ***)
-value orderedPreds = ref [];
+value unOrderedPreds = ref [];
 value fairPreds = ref [];
 
 
@@ -178,9 +178,9 @@ value rec readFile file lin aff =
         parseFileLine fstr
       } with [e -> raise (Stream.Error ("Bad mode declaration at "^(posStr())))] |
 
-      [(Kwd "#ordered",_); (Ident c,_); (Kwd ".",_)::_] -> do { 
+      [(Kwd "#unordered",_); (Ident c,_); (Kwd ".",_)::_] -> do { 
         Stream.junk fstr; Stream.junk fstr; Stream.junk fstr; 
-        orderedPreds.val := [c::orderedPreds.val];
+        unOrderedPreds.val := [c::unOrderedPreds.val];
         parseFileLine fstr
       } |
       [(Kwd "#fair",_); (Ident c,_); (Kwd ".",_)::_] -> do { 
@@ -190,7 +190,7 @@ value rec readFile file lin aff =
       } |
       [(Kwd "#load",_); (String file',_); (Kwd ".",_)::_] -> 
         let _ = do {
-          fairPreds.val := []; orderedPreds.val := []; ctx.val := []; mysignature.val := []; allModes.val := []
+          fairPreds.val := []; unOrderedPreds.val := []; ctx.val := []; mysignature.val := []; allModes.val := []
         } in
         let _ = ps 0 ("Loading file "^file'^".\n") in
         let (lRefs', aRefs') = readFile file' [] [] in 
@@ -277,7 +277,7 @@ do {
 
 
 value go useTypesFlag = 
-let _ = orderedPreds.val := [] in
+let _ = unOrderedPreds.val := [] in
 let _ = fairPreds.val := [] in
 let _ = traceLevel.val := 0 in
 let _ = useTypes.val := useTypesFlag in
@@ -297,8 +297,8 @@ let rec go lin aff =
     [: `(Kwd "#mode",_); `(Ident p,_); modes = parseModes p :] -> 
       do { allModes.val := [(p,modes)::allModes.val]; go lin aff } |
 
-    [: `(Kwd "#ordered",_); `(Ident p,_) :] -> 
-      do { orderedPreds.val := [p::orderedPreds.val]; go lin aff } |
+    [: `(Kwd "#unOrdered",_); `(Ident p,_) :] -> 
+      do { unOrderedPreds.val := [p::unOrderedPreds.val]; go lin aff } |
 
     [: `(Kwd "#fair",_); `(Ident p,_) :] -> 
       do { fairPreds.val := [p::fairPreds.val]; go lin aff } |
@@ -324,7 +324,7 @@ let rec go lin aff =
       do { showStr None None True False 0 ctx.val tagTyp2str; ps 0 "\n"; go lin aff } |
 
     [: `(Kwd "#clear",_) :] -> do { 
-      fairPreds.val := []; orderedPreds.val := []; ctx.val := []; allModes.val := []; mysignature.val := []; go [] []
+      fairPreds.val := []; unOrderedPreds.val := []; ctx.val := []; allModes.val := []; mysignature.val := []; go [] []
     } |
     [: `(Kwd "#clearctx",_) :] -> do { ctx.val := []; go [] []} |
     [: `(Kwd "#clearsig",_) :] -> do { mysignature.val := []; go lin aff} |
@@ -336,7 +336,7 @@ let rec go lin aff =
       go (lin @ lin') (aff @ aff') |
 
     [: `(Kwd "#load",_); `(String file,_) :] -> do {
-      fairPreds.val := []; orderedPreds.val := []; ctx.val := []; mysignature.val := []; allModes.val := [];
+      fairPreds.val := []; unOrderedPreds.val := []; ctx.val := []; mysignature.val := []; allModes.val := [];
       let (lin',aff') = 
         try readFile file [] [] with [Sys_error s -> do{ ps 0 (s^"\n\n"); ([], [])}]
       in

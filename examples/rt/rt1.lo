@@ -1,0 +1,203 @@
+(***
+
+  "Distributed Credential Chain Discovery in Trust Management" by Li,
+Winsborough, and Mitchell.
+
+  Implementation of backward search algorithm (section 3.4) by Jeff
+Polakow. 
+
+This is a backchaining version which is closer to actual algorithm
+from paper than the previous purely forward-chaining version.
+
+***)
+
+(*
+  Solution monitors are implicit on every edge. Relies on saturation
+to stop forwarding solutions via monitors.
+
+  Solution for a node E (the set of entity nodes which can reach E) is
+represented as individual assumptions, one for each element of
+solution. This allows the use of LolliMon forward chaining and
+saturation.
+
+  This version stores credentials as affine assumptions. This allows a
+nice way to gather the set of all nodes which must be added to process
+a role node.
+
+  The work queue of nodes which must be processed is stored as a list
+of nodes in the linear context. This is necessary to let monitors,
+which are forward-chaining clauses, add nodes to the work queue.
+
+  The nodes of the graph are stored in a list in the linear
+context. Before adding a node to the work queue, a monitor checks that
+the node isn't already in the graph. This check requires the
+non-logical "once" predicate. This check is necessary to prevent the
+monitors from endlessly adding the same node to the work queue.
+
+  Because backwards chaining clauses add solution assumptions and
+edges, I need to make use of the #unordered directive to get
+reasonable performance-- but the performance is still much worse than
+the purely unrestricted forward-chaining version and what I
+expected. I think this is explained by the extra explicit work needed
+to manage the various lists which is unnecessary in the pure-forward
+chaining version.  
+
+*)
+
+entity : type.
+role_name : type.
+
+role_expr : type.
+^ : entity -> role_expr.
+role : entity -> role_name -> role_expr.
+linked_role : entity -> role_name -> role_name -> role_expr.
+inter : list role_expr -> role_expr.
+
+credential : entity -> role_name -> role_expr -> o.
+
+(*** 
+
+  Credential set from Figure 2 
+
+***)
+a : entity.
+b : entity.
+d : entity.
+r0 : role_name.
+r1 : role_name.
+r2 : role_name.
+r3 : role_name.
+#affine credential a r0 (linked_role a r1 r2).
+#affine credential a r0 (^ a).
+#affine credential a r1 (role b r1).
+#affine credential a r1 (role a r0).
+#affine credential b r1 (role a r0).
+#affine credential b r1 (^ d).
+#affine credential d r2 (^ b).
+#affine credential b r0 (role a r0).
+#affine credential d r1 (linked_role d r2 r3).
+
+soln : role_expr -> entity -> o.
+edge : role_expr -> role_expr -> o.
+
+(**
+
+   soln and edge should be unordered as we want them to saturate. 
+
+   The program works without the following declarations, but it is
+unbearably slow.
+
+   #unordered is an undocumented directive to force a predicate to be
+stored in an unordered matter, i.e. to use as much sharing as possible
+which means only one copy of a clause will be present in the
+discrimination tree.
+
+**) 
+#unordered soln.  
+#unordered edge.
+
+(** solution monitor **)
+!edge N1 N2, !soln N1 E -o {!soln N2 E}.
+
+bool : type.
+true : bool.
+false : bool.
+
+elem : T -> list T -> bool -> o.
+elem X (X::Xs) true.
+elem X (Y::Ys) Res <= elem X Ys Res.
+elem X nil false.
+
+append : list T -> list T -> list T -> o.
+append nil L L.
+append (H::T) L (H::L') <= append T L L'.
+
+queue : list role_expr -> o. (** work queue *)
+done : list role_expr -> o.  (** all nodes which ever been on queue **)
+
+(**
+
+  process is main predicate. It could be parameterized with a
+continuation which actually did something with the constructed
+graph. This continuation would replace the "write_ctx" call in the
+first process clause.
+
+**)
+process : o.
+
+process o- {queue nil, write_ctx, done Nodes}.
+
+collect : list role_expr -> o.
+getAll : entity -> role_name -> list role_expr -> o.
+getAll A R Nodes o-
+  (pi RE \ pi Old \ credential A R RE, collect Old -o {collect (RE::Old)}) =>
+  collect nil -o
+  {collect Nodes}.
+
+addNew : role_expr -> list role_expr -> list role_expr -> list role_expr -> o.
+addNew RE nil Nodes Done o- 
+  queue Nodes -o done Done -o {process}.
+addNew RE (N::Ns) Nodes Done o-
+  append Nodes (N::nil) Nodes',
+  (edge N RE => addNew RE Ns Nodes' (N::Done)).
+
+process o- 
+  queue (role A R :: Nodes),
+  done Done,
+  getAll A R New,
+  (addNew (role A R) New Nodes Done).
+
+process o- 
+  queue (^ A :: Nodes),
+  (soln (^ A) A => queue Nodes -o {process}).
+
+process o-
+  queue (linked_role A R1 R2 :: Nodes),
+  append Nodes (role A R1::nil) New,
+  ((pi B \ pi Old' \ pi New' \ pi Done' \ pi Res \
+      !soln (role A R1) B, 
+      done Done',
+      once (elem (role B R2) Done' Res), (** these 2 lines prevent cycles **)
+      Res = false,
+      queue Old',
+      append Old' (role B R2::nil) New' -o
+      {done (role B R2::Done'), queue New', !edge (role B R2) (linked_role A R1 R2)}
+   ) => 
+   queue New -o 
+   {process}
+  ).
+
+doInter : list role_expr -> list role_expr -> list role_expr -> list role_expr -> o.
+doInter Fs nil Nodes Done o- 
+  done Done -o queue Nodes -o process.
+doInter All (F::Fs) Nodes Done o-
+  append Nodes (F::nil) Nodes',
+  ((pi D \ !soln F D, !soln (inter Fs) D -o {!soln (inter (F::Fs)) D}) =>
+   doInter All Fs Nodes' (F::Done)
+  ).
+soln (inter nil) D.
+
+process o-
+  queue (inter Fs::Nodes),
+  done Done,
+  ((pi D \ soln (inter Fs) D => {!edge (^ D) (inter (F::Fs))}) =>
+   doInter Fs Fs Nodes Done
+  ).
+
+(*** Example query (figure 2) ***
+
+queue (role a r0::nil) -o done (role a r0::nil) -o process.
+
+********************************)
+
+
+
+
+
+
+
+
+
+
+
+

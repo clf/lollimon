@@ -56,7 +56,10 @@ value residuate' forwardChain chkModeOpt dc tag =
     ] |
 
     (a as Const c 0 args) when not (List.mem c noResid) -> 
+      [((a, Const "one" 0 []), not (c = "{}" || forwardChain || List.mem c unOrderedPreds.val))] |
+(*
       [((a, Const "one" 0 []), not (c = "{}" || forwardChain))] |
+*)
 (*
       [((a, Const "one" 0 []),List.mem c orderedPreds.val && not (c = "{}"))] |
 *)
