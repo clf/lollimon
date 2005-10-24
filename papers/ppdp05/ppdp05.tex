@@ -1952,7 +1952,7 @@ $$
 \qquad
 \begin{array}{ll}
   \CLFLseq{\Gamma}{\Delta}{S} & \hbox{Forward chaining} \\
-  \CLFLLFseq{\Gamma}{\Delta}{A}{\{S\}} & \hbox{Monadic left focusing} \\
+  \CLFLLFseq{\Gamma}{\Delta}{A}{S} & \hbox{Monadic left focusing} \\
   \CLFLIseq{\Gamma}{\Delta}{\Psi}{S} & \hbox{Left inversion} \\
   \CLFRFseq{\Gamma}{\Delta}{S} & \hbox{Right focusing} \\
 \end{array}
@@ -2055,29 +2055,29 @@ $$
 $$
 \qquad (Modified left rules for asynchronous connectives)
 $$
-\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{B}{P}
         \andalso
         \CLFRIseq{\Gamma}{\cdot}{A}}
-       {\CLFLFseq{\Gamma}{\Delta}{A\iimp B}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\iimp B}{P}}
        {\GRuleName{\CLFsystem}{\iimp_L}'}
 \qquad
-\nsrule{\CLFLFseq{\Gamma}{\Delta_1}{B}{P}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta_1}{B}{P}
         \andalso
         \CLFRIseq{\Gamma}{\Delta_2}{A}}
-       {\CLFLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
        {\GRuleName{\CLFsystem}{\limp_L}'}
 $$
 $$
-\nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
-       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\with B}{P}}
        {\GRuleName{\CLFsystem}{\with_{L1}'}}
 \qquad
-\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}}
-       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{B}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\with B}{P}}
        {\GRuleName{\CLFsystem}{\with_{L2}'}}
 \qquad
-\nsrule{\CLFLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
-       {\CLFLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
        {\GRuleName{\CLFsystem}{\forall_L}'}
 \qquad
 \hbox{(no $\top_L'$ rule)}
@@ -2130,4 +2130,5 @@ $$
        {\CLFRFseq{\Gamma}{\Delta}{A}}
        {\GRuleName{\CLFsystem}{\Rightarrow>\!\!>}}
 $$
+
 \end{document}
