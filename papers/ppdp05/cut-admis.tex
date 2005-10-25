@@ -1,0 +1,315 @@
+\documentclass{sig-alt}
+
+\usepackage{proof}
+\usepackage{palatino}
+\usepackage{array}
+\usepackage{stmaryrd}
+\usepackage{bm}
+
+\include{imacros}
+
+\newcommand{\piIn}[2]{\overline{#1}\langle #2 \rangle} 
+\def\ppar{\mathbin{|}}
+\def\lra{\longrightarrow}
+
+% Fix dependence on mathtools --kw
+%\usepackage{mathtools}
+\let\xleftarrow\leftarrow
+\let\xrightarrow\rightarrow
+\let\xLeftarrow\Leftarrow
+\let\xRightarrow\Rightarrow
+
+% Fix hyphenation problems --kw
+\emergencystretch1.5em
+
+% No page numbers in camera ready version
+
+% Show page numbers
+%\def\thepage{\arabic{page}}
+%\advance\voffset by -0.5in
+
+% Comment out long spans of text
+\long\def\junkstartshere#1\junkendshere{}
+
+% British spelling gotchas:
+%   judgement -> judgment
+%   arguement -> argument
+%   focussing -> focusing
+%   focussed -> focused
+%   modelling -> modeling
+%   modelled -> modeled
+%     (but note
+%        occurred, occurring,
+%        discussed, discussing,
+%        compelled, compelling
+%      in both British and American
+%      -- stress on 2nd syllable doubles consonant in American)
+
+\begin{document}
+
+\onecolumn
+
+% Right inversion
+\def\CLFRIseq#1#2#3{#1;#2\Rightarrow#3}
+% Left focusing
+\def\CLFLFseq#1#2#3#4{#1;#2;#3\mathrel{>\!\! >}#4}
+% (L)ax forward chaining
+\def\CLFLseq#1#2#3{#1;#2\rightarrow#3}
+% (L)ax left focusing
+\def\CLFLLFseq#1#2#3#4{#1;#2;#3\mathrel>#4}
+% Left inversion
+\def\CLFLIseq#1#2#3#4{#1;#2;#3\rightarrow#4}
+% Right focusing
+\def\CLFRFseq#1#2#3{#1;#2\mathrel{>\!\! >}#3}
+
+
+\section{Logical Rules Summary}
+
+\vspace{0.25cm}
+
+\noindent \textsc{Syntax:}
+$$
+\begin{array}{lll}
+A & ::= &  P 
+      \mid \top 
+      \mid A_1 \with A_2 
+      \mid \\&& A_1 \limp A_2 
+      \mid A_1 \iimp A_2 
+      \mid \forall x{:}\tau.A  
+      \mid \{ S \} 
+\\[1ex]
+S & ::= &  A
+      \mid \bang A
+      \mid \one 
+      \mid S_1 \tensor S_2 
+      \mid \exists x{:}\tau.S 
+\end{array}
+\qquad
+\begin{array}{lll}
+  \Gamma & ::= & \cdot \mid \Gamma, A \\
+  \Delta & ::= & \cdot \mid \Delta, A \\%[2ex]
+  \Psi   & ::= & \cdot \mid S, \Psi \\
+\end{array}
+$$
+
+\noindent \textsc{Sequent forms:}
+$$
+\begin{array}{ll}
+  \CLFRIseq{\Gamma}{\Delta}{A} & \hbox{Right inversion} \\
+  \CLFLFseq{\Gamma}{\Delta}{A}{P} & \hbox{Left focusing} \\
+\end{array}
+\qquad
+\begin{array}{ll}
+  \CLFLseq{\Gamma}{\Delta}{S} & \hbox{Forward chaining} \\
+  \CLFLLFseq{\Gamma}{\Delta}{A}{S} & \hbox{Monadic left focusing} \\
+  \CLFLIseq{\Gamma}{\Delta}{\Psi}{S} & \hbox{Left inversion} \\
+  \CLFRFseq{\Gamma}{\Delta}{S} & \hbox{Right focusing} \\
+\end{array}
+$$
+
+\noindent \textsc{Rules for backward chaining:}
+$$
+\nsrule{\CLFLFseq{\Gamma,A}{\Delta}{A}{P}}
+       {\CLFRIseq{\Gamma,A}{\Delta}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{uhyp}}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFRIseq{\Gamma}{\Delta,A}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{lhyp}}}
+\qquad
+\nsrule{}
+       {\CLFLFseq{\Gamma}{\cdot}{P}{P}}
+       {\GRuleName{\CLFsystem}{\hbox{atm}}}
+\qquad
+\nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
+       {\CLFRIseq{\Gamma}{\Delta}{\{S\}}}
+       {\GRuleName{\CLFsystem}{\{\}_R}}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma,A}{\Delta}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A \iimp B}}
+       {\GRuleName{\CLFsystem}{\iimp_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\cdot}{A}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\iimp B}{P}}
+       {\GRuleName{\CLFsystem}{\iimp_L}}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta,A}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A\limp B}}
+       {\GRuleName{\CLFsystem}{\limp_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta_1}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\Delta_2}{A}}
+       {\CLFLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
+       {\GRuleName{\CLFsystem}{\limp_L}}
+$$
+$$
+\nsrule{}
+       {\CLFRIseq{\Gamma}{\Delta}{\top}}
+       {\GRuleName{\CLFsystem}{\top_R}}
+\qquad
+\hbox{(no $\top_L$ rule)}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{A}
+        \andalso
+        \CLFRIseq{\Gamma}{\Delta}{B}}
+       {\CLFRIseq{\Gamma}{\Delta}{A\with B}}
+       {\GRuleName{\CLFsystem}{\with_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L1}}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{B}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L2}}}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{[a/x]A}}
+       {\CLFRIseq{\Gamma}{\Delta}{\forall x{:}\tau.A}}
+       {\GRuleName{\CLFsystem}{\forall_R}}
+\qquad
+\nsrule{\CLFLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
+       {\CLFLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
+       {\GRuleName{\CLFsystem}{\forall_L}}
+$$
+
+\noindent \textsc{Rules for forward chaining:}
+$$
+\nsrule{\CLFLLFseq{\Gamma,A}{\Delta}{A}{S}}
+       {\CLFLseq{\Gamma,A}{\Delta}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{uhyp}'}}
+\qquad
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{A}{S}}
+       {\CLFLseq{\Gamma}{\Delta,A}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{lhyp}'}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{S'}{S}}
+       {\CLFLLFseq{\Gamma}{\Delta}{\{S'\}}{S}}
+       {\GRuleName{\CLFsystem}{\{\}_L}}
+$$
+$$
+\nsrule{\CLFLseq{\Gamma}{\Delta}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\cdot}{S}}
+       {\GRuleName{\CLFsystem}{\rightarrow\rightarrow}}
+\qquad
+\nsrule{\CLFRFseq{\Gamma}{\Delta}{S}}
+       {\CLFLseq{\Gamma}{\Delta}{S}}
+       {\GRuleName{\CLFsystem}{>\!\! >\rightarrow}}
+$$
+\qquad (Modified left rules for asynchronous connectives)
+$$
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\cdot}{A}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\iimp B}{P}}
+       {\GRuleName{\CLFsystem}{\iimp_L}'}
+\qquad
+\nsrule{\CLFLLFseq{\Gamma}{\Delta_1}{B}{P}
+        \andalso
+        \CLFRIseq{\Gamma}{\Delta_2}{A}}
+       {\CLFLLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
+       {\GRuleName{\CLFsystem}{\limp_L}'}
+$$
+$$
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{A}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L1}'}}
+\qquad
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{B}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\with B}{P}}
+       {\GRuleName{\CLFsystem}{\with_{L2}'}}
+\qquad
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
+       {\GRuleName{\CLFsystem}{\forall_L}'}
+\qquad
+\hbox{(no $\top_L'$ rule)}
+$$
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\one,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\one_L}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{S_1,S_2,\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{S_1\tensor S_2,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\tensor_L}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma}{\Delta}{[a/x]S',\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\exists x{:}\tau.S',\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\exists_L}}
+\qquad
+\nsrule{\CLFLIseq{\Gamma,A}{\Delta}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{\bang A,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\bang_L}}
+$$
+$$
+\nsrule{\CLFLIseq{\Gamma}{\Delta,A}{\Psi}{S}}
+       {\CLFLIseq{\Gamma}{\Delta}{A,\Psi}{S}}
+       {\GRuleName{\CLFsystem}{\hbox{async}}}
+$$
+
+\noindent \textsc{Right rules for synchronous formulas:}
+$$
+\nsrule{}
+       {\CLFRFseq{\Gamma}{\cdot}{\one}}
+       {\GRuleName{\CLFsystem}{\one_R}}
+\qquad
+\nsrule{\CLFRFseq{\Gamma}{\Delta_1}{S_1}
+        \andalso
+        \CLFRFseq{\Gamma}{\Delta_2}{S_2}}
+       {\CLFRFseq{\Gamma}{\Delta_1,\Delta_2}{S_1\tensor S_2}}
+       {\GRuleName{\CLFsystem}{\tensor_R}}
+\qquad
+\nsrule{\CLFRFseq{\Gamma}{\Delta}{[t/x]S}}
+       {\CLFRFseq{\Gamma}{\Delta}{\exists x{:}\tau.S}}
+       {\GRuleName{\CLFsystem}{\exists_R}}
+$$
+$$
+\nsrule{\CLFRIseq{\Gamma}{\cdot}{A}}
+       {\CLFRFseq{\Gamma}{\cdot}{\bang A}}
+       {\GRuleName{\CLFsystem}{\bang_R}}
+\qquad
+\nsrule{\CLFRIseq{\Gamma}{\Delta}{A}}
+       {\CLFRFseq{\Gamma}{\Delta}{A}}
+       {\GRuleName{\CLFsystem}{\Rightarrow>\!\!>}}
+$$
+
+\newpage
+
+\section{Admissibility of Cut}
+
+\begin{Teorema}\mbox{ }
+\begin{enumerate}
+\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFRIseq{\Gamma, A}{\Delta}{C}$ then $\CLFRIseq{\Gamma}{\Delta}{C}$.
+\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFRIseq{\Gamma}{\Delta_2, A}{C}$ then $\CLFRIseq{\Gamma}{\Delta_1, \Delta_2}{C}$.
+\\
+\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLFseq{\Gamma}{\Delta_2}{A}{P}$ then $\CLFRIseq{\Gamma}{\Delta_1, \Delta_2}{P}$.
+\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFLFseq{\Gamma, A}{\Delta}{B}{P}$ then $\CLFLFseq{\Gamma}{\Delta}{B}{P}$ when $A \neq B$.
+\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLFseq{\Gamma}{\Delta_2, A}{B}{P}$ then $\CLFLFseq{\Gamma}{\Delta_1, \Delta_2}{B}{P}$.
+\\
+\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFLseq{\Gamma, A}{\Delta}{S}$ then $\CLFLseq{\Gamma}{\Delta}{S}$.
+\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLseq{\Gamma}{\Delta_2, A}{S}$ then $\CLFLseq{\Gamma}{\Delta_1, \Delta_2}{S}$.
+\\
+\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLLFseq{\Gamma}{\Delta_2}{A}{S}$ then $\CLFLseq{\Gamma}{\Delta_1, \Delta_2}{S}$.
+\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFLLFseq{\Gamma, A}{\Delta}{B}{S}$ then $\CLFLLFseq{\Gamma}{\Delta}{B}{S}$ when $A \neq B$.
+\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLLFseq{\Gamma}{\Delta_2, A}{B}{S}$ then $\CLFLLFseq{\Gamma}{\Delta_1, \Delta_2}{B}{S}$.
+\\
+\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFRFseq{\Gamma, A}{\Delta}{S}$ then $\CLFRFseq{\Gamma}{\Delta}{S}$.
+\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFRFseq{\Gamma}{\Delta_2, A}{S}$ then $\CLFRFseq{\Gamma}{\Delta_1, \Delta_2}{S}$.
+\\
+\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFLIseq{\Gamma, A}{\Delta}{S}{T}$ then $\CLFLIseq{\Gamma}{\Delta}{S}{T}$.
+\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLIseq{\Gamma}{\Delta_2, A}{S}{T}$ then $\CLFLIseq{\Gamma}{\Delta_1, \Delta_2}{S}{T}$.
+\end{enumerate}
+\end{Teorema}
+
+\begin{Demo}
+By structural induction on the cut formula and then the second given derivation.
+\end{Demo}
+
+\end{document}

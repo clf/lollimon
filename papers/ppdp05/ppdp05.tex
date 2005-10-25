@@ -2131,34 +2131,4 @@ $$
        {\GRuleName{\CLFsystem}{\Rightarrow>\!\!>}}
 $$
 
-\appendix
-\section{Admissibility of Cut}
-
-\begin{Teorema}\mbox{ }
-\begin{enumerate}
-\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFRIseq{\Gamma, A}{\Delta}{C}$ then $\CLFRIseq{\Gamma}{\Delta}{C}$.
-\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFRIseq{\Gamma}{\Delta_2, A}{C}$ then $\CLFRIseq{\Gamma}{\Delta_1, \Delta_2}{C}$.
-\\
-\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLFseq{\Gamma}{\Delta_2}{A}{P}$ then $\CLFRIseq{\Gamma}{\Delta_1, \Delta_2}{P}$.
-\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFLFseq{\Gamma, A}{\Delta}{B}{P}$ then $\CLFLFseq{\Gamma}{\Delta}{B}{P}$ when $A \neq B$.
-\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLFseq{\Gamma}{\Delta_2, A}{B}{P}$ then $\CLFLFseq{\Gamma}{\Delta_1, \Delta_2}{B}{P}$.
-\\
-\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFLseq{\Gamma, A}{\Delta}{S}$ then $\CLFLseq{\Gamma}{\Delta}{S}$.
-\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLseq{\Gamma}{\Delta_2, A}{S}$ then $\CLFLseq{\Gamma}{\Delta_1, \Delta_2}{S}$.
-\\
-\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLLFseq{\Gamma}{\Delta_2}{A}{S}$ then $\CLFLseq{\Gamma}{\Delta_1, \Delta_2}{S}$.
-\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFLLFseq{\Gamma, A}{\Delta}{B}{S}$ then $\CLFLLFseq{\Gamma}{\Delta}{B}{S}$ when $A \neq B$.
-\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLLFseq{\Gamma}{\Delta_2, A}{B}{S}$ then $\CLFLLFseq{\Gamma}{\Delta_1, \Delta_2}{B}{S}$.
-\\
-\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFRFseq{\Gamma, A}{\Delta}{S}$ then $\CLFRFseq{\Gamma}{\Delta}{S}$.
-\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFRFseq{\Gamma}{\Delta_2, A}{S}$ then $\CLFRFseq{\Gamma}{\Delta_1, \Delta_2}{S}$.
-\\
-\item If $\CLFRIseq{\Gamma}{\cdot}{A}$ and $\CLFLIseq{\Gamma, A}{\Delta}{S}{T}$ then $\CLFLIseq{\Gamma}{\Delta}{S}{T}$.
-\item If $\CLFRIseq{\Gamma}{\Delta_1}{A}$ and $\CLFLIseq{\Gamma}{\Delta_2, A}{S}{T}$ then $\CLFLIseq{\Gamma}{\Delta_1, \Delta_2}{S}{T}$.
-\end{enumerate}
-\end{Teorema}
-
-\begin{Demo}
-By structural induction on the cut formula and then the second given derivation.
-\end{Demo}
 \end{document}
