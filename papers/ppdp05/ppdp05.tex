@@ -2055,29 +2055,29 @@ $$
 $$
 \qquad (Modified left rules for asynchronous connectives)
 $$
-\nsrule{\CLFLLFseq{\Gamma}{\Delta}{B}{P}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{B}{S}
         \andalso
         \CLFRIseq{\Gamma}{\cdot}{A}}
-       {\CLFLLFseq{\Gamma}{\Delta}{A\iimp B}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\iimp B}{S}}
        {\GRuleName{\CLFsystem}{\iimp_L}'}
 \qquad
-\nsrule{\CLFLLFseq{\Gamma}{\Delta_1}{B}{P}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta_1}{B}{S}
         \andalso
         \CLFRIseq{\Gamma}{\Delta_2}{A}}
-       {\CLFLLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{P}}
+       {\CLFLLFseq{\Gamma}{\Delta_1,\Delta_2}{A\limp B}{S}}
        {\GRuleName{\CLFsystem}{\limp_L}'}
 $$
 $$
-\nsrule{\CLFLLFseq{\Gamma}{\Delta}{A}{P}}
-       {\CLFLLFseq{\Gamma}{\Delta}{A\with B}{P}}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{A}{S}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\with B}{S}}
        {\GRuleName{\CLFsystem}{\with_{L1}'}}
 \qquad
-\nsrule{\CLFLLFseq{\Gamma}{\Delta}{B}{P}}
-       {\CLFLLFseq{\Gamma}{\Delta}{A\with B}{P}}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{B}{S}}
+       {\CLFLLFseq{\Gamma}{\Delta}{A\with B}{S}}
        {\GRuleName{\CLFsystem}{\with_{L2}'}}
 \qquad
-\nsrule{\CLFLLFseq{\Gamma}{\Delta}{[t/x]A}{P}}
-       {\CLFLLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{P}}
+\nsrule{\CLFLLFseq{\Gamma}{\Delta}{[t/x]A}{S}}
+       {\CLFLLFseq{\Gamma}{\Delta}{\forall x{:}\tau.A}{S}}
        {\GRuleName{\CLFsystem}{\forall_L}'}
 \qquad
 \hbox{(no $\top_L'$ rule)}
