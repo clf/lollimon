@@ -37,13 +37,13 @@ let _ = ps 0 ("checkMode: "^(term2str head)^" | "^(term2str body)^"\n") in
   let outputs = ref [] in
   let headName = ref "" in
   let sub = makeSub evars (Some (-1)) in (*** EVars with level -1 are just for mode checking ***)
-  let rec doArgs f mode = fun [
+  let rec doArgs f mode = fun [ (*** do f (which expects a mode constant) to each arg ***)
     [] -> () |
     [tm::tms] -> 
       let (m,ms) = match mode with [
         None -> (Const "*" (-2) [],None) | 
         Some [m::ms] -> (m,Some ms) |
-        _ -> raise (Failure "checkMode chkHead")
+        _ -> raise (Failure "checkMode doArgs (was chkHead)")
       ] in
       do {f m tm; doArgs f ms tms}
   ] in 
@@ -92,11 +92,19 @@ let _ = ps 0 ("initEV m="^(term2str m)^" rf="^(term2str (EVar "?" rf (-2) []))^"
         Not_found -> None
       ] in
       doArgs (doEVar (initEV)) mode args |
+    EVar _ rf (-1) args -> do {
+      match rf.val with [
+        Inst (Const "+" -2 []) -> () |
+        _ -> ps 0 ("Warning: assuming clause with possibly uninstantiated head.\n")
+      ];
+      ps 0 ("Warning: cannot check mode of variable head clause.\n");
+      doArgs (doEVar (initEV)) None args
+    } |
     _ -> raise (Failure "checkMode Head")
   ] in
-  let chkArg c isGoal m rf = 
+  let chkMode c isGoal m rf = 
 (*
-let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar "?" rf (-2) []))^"\n") in
+let _ = ps 0 ("chkMode "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar "?" rf (-2) []))^"\n") in
 *)
   match (isGoal, m, rf.val) with [
     (True, Const "-" -2 [], _) -> rf.val := Inst (Const "+" (-2) []) | 
@@ -125,6 +133,16 @@ let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar 
     Const ("-o" | "=>" | "-@") 0 [x;y] -> (*** order of subgoals in clauses must be reversed ***)
       if isGoal then do {chkBody (not isGoal) x; chkBody isGoal y} 
       else do {chkBody isGoal y; chkBody (not isGoal) x} |  
+    Const "=" 0 [x;y] -> match (expose x,expose y) with [ (*** propagate instantiation flow for equals ***)
+      (EVar _ rf (-1) _, Const _ _ _) -> rf.val := Inst (Const "+" (-2) []) |
+      (Const _ _ _, EVar _ rf (-1) _) -> rf.val := Inst (Const "+" (-2) []) |
+      (EVar _ rf1 (-1) _, EVar _ rf2 (-1) _) -> match (rf1.val, rf2.val) with [
+        (Inst (Const "+" (-2) []), _) -> rf2.val := Inst (Const "+" (-2) []) |
+        (_, Inst (Const "+" (-2) [])) -> rf1.val := Inst (Const "+" (-2) []) |
+        _ -> ()
+      ] |
+      _ -> ()
+    ] |
     (me as Const c 0 args) -> 
 (*
       let _ = ps 0 ("chkBody "^(sob isGoal)^": "^(term2str' True me)^"\n") in
@@ -132,7 +150,11 @@ let _ = ps 0 ("chkArg "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar 
       let mode = try Some (List.assoc c allModes.val) with [
         Not_found -> None
       ] in
-      doArgs (doEVar (chkArg c isGoal)) mode args |
+      doArgs (doEVar (chkMode c isGoal)) mode args |
+    (ev as EVar nm rf (-1) args) -> do {
+      ps 0 ("Warning: cannot check mode of a variable subgoal.\n");
+      doArgs (doEVar (chkMode nm isGoal)) None [ev]
+    } |
     _ -> raise (Failure "checkMode chkBody")
   ] in 
   let isInst rf = match rf.val with [
