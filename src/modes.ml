@@ -66,10 +66,9 @@ let _ = ps 0 ("checkMode: "^(term2str head)^" | "^(term2str body)^"\n") in
         in 
         List.iter go args' |
       Lam _ dc [] -> go dc |
-      EVar _ rf (-1) args -> do {
-        f m rf; 
-        List.iter go args
-      } |
+      EVar _ rf (-1) args ->
+        let allBVars = List.for_all (fun [Var _ _ [] -> True | _ -> False]) in
+        if allBVars args then f m rf else () |
       e -> raise (Failure ("checkMode doEVar: "^(term2str' True e))) (*** there shouldn't be any real EVars ***)
     ] in go
   in
