@@ -171,12 +171,12 @@ value rec readFile file lin aff =
         parseFileLine fstr
       } | 
 
-      [(Kwd "#mode",_); (Ident p,_)::_] -> try do {
+      [(Kwd "#mode",_); (Ident p,_)::_] -> do {
         Stream.junk fstr; Stream.junk fstr; 
-        let modes = parseModes p fstr in
+        let modes = try parseModes p fstr with [Stream.Error _ -> raise (Stream.Error ("Bad mode declaration at "^(posStr())))] in
         allModes.val := [(p,modes)::allModes.val]; 
         parseFileLine fstr
-      } with [e -> raise (Stream.Error ("Bad mode declaration at "^(posStr())))] |
+      } |
 
       [(Kwd "#unordered",_); (Ident c,_); (Kwd ".",_)::_] -> do { 
         Stream.junk fstr; Stream.junk fstr; Stream.junk fstr; 

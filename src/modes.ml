@@ -1,9 +1,9 @@
 type mode = [Unknown | Input | Output of bool];
 
 value allModes = ref [];
-
+     
 value parseModes p = 
-  let myfail () = raise (Stream.Error "Bad mode declaration") in
+  let myfail () = do { ps 0 "raising bad mode declaration\n"; raise (Stream.Error "Bad mode declaration")} in
   let rec go = fun [
     Const "o" 0 [] -> parser [
       [: `(Kwd ".",_) :] -> [] |
@@ -66,23 +66,26 @@ let _ = ps 0 ("checkMode: "^(term2str head)^" | "^(term2str body)^"\n") in
         in 
         List.iter go args' |
       Lam _ dc [] -> go dc |
-      EVar _ rf (-1) args ->
-        let allBVars = List.for_all (fun [Var _ _ [] -> True | _ -> False]) in
-        if allBVars args then f m rf else () |
+      (e as EVar nm rf (-1) args) ->
+        let allBVars = List.for_all (fun x -> match expose x with [Var _ _ [] -> True | x -> False]) args in
+        f allBVars m rf |
       e -> raise (Failure ("checkMode doEVar: "^(term2str' True e))) (*** there shouldn't be any real EVars ***)
     ] in go
   in
-  let initEV m rf = match (m,rf.val) with [
+  let initEV isPat m rf = (*** if EVar is not pattern then always use * ***)
+    if isPat then match (m,rf.val) with [
 (*
 let _ = ps 0 ("initEV m="^(term2str m)^" rf="^(term2str (EVar "?" rf (-2) []))^"\n") in
 *)
-    (Const "-" -2 [], Open _) -> do {
-      outputs.val := [rf::outputs.val]; 
-      rf.val := Inst (Const "*" (-2) [])
-    } | 
-    (_, Open _) -> rf.val := Inst m | 
-    _ -> ()
-  ] in
+      (Const "-" -2 [], Open _) -> do {
+        outputs.val := [rf::outputs.val]; 
+        rf.val := Inst (Const "*" (-2) [])
+      } | 
+      (_, Open _) -> rf.val := Inst m | 
+      _ -> ()
+    ] 
+    else rf.val := Inst (Const "*" (-2) [])
+  in
   let rec chkHead = fun [ (*** initialize mode EVars using mode declaration ***)
     (e as (Lam _ _ [_::_] | ExpSub _ _ _)) -> chkHead (expose e) |
     Const c 0 args -> 
@@ -101,12 +104,12 @@ let _ = ps 0 ("initEV m="^(term2str m)^" rf="^(term2str (EVar "?" rf (-2) []))^"
     } |
     _ -> raise (Failure "checkMode Head")
   ] in
-  let chkMode c isGoal m rf = 
+  let chkMode c isGoal isPat m rf = (*** only propagate instantiation for pattern EVars ***)
 (*
 let _ = ps 0 ("chkMode "^(sob isGoal)^" "^(term2str m)^" "^(term2str' True (EVar "?" rf (-2) []))^"\n") in
 *)
   match (isGoal, m, rf.val) with [
-    (True, Const "-" -2 [], _) -> rf.val := Inst (Const "+" (-2) []) | 
+    (True, Const "-" -2 [], _) -> if isPat then rf.val := Inst (Const "+" (-2) []) else () | 
     (True, Const "+" -2 [], Inst (Const "+" -2 [])) -> () |
     (True, Const "+" -2 [], _) -> raise (BadMode c) |
 
