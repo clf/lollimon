@@ -1,0 +1,171 @@
+(*
+  Collection Analysis for Horn Clause Programs
+  Dale Miller, PPDP 2006
+  Transcribed by Frank Pfenning
+*)
+
+atom : type.
+term : type.
+
+prop : type.
+atm : atom -> prop.
+
+all : (term -> prop) -> prop.
+and : prop -> prop -> prop.
+imp : prop -> prop -> prop.
+
+nat : int -> term.
+leq : term -> term -> prop.
+gr : term -> term -> prop.
+
+prog : prop -> o.
+solve : prop -> o.
+imm : prop -> atom -> o.
+
+solve (atm P) o- prog D, imm D P.
+solve (and G1 G2) o- solve G1, solve G2.
+solve (leq (nat X) (nat Y)) o- Y > X ; X = Y.
+solve (gr (nat X) (nat Y)) o- X > Y.
+(* imp, all disallowed in goals *)
+imm (all x \ D x) P o- imm (D T) P.
+imm (imp G D) P o- imm D P, solve G.
+imm (and D1 D2) P o- imm D1 P.
+imm (and D1 D2) P o- imm D2 P.
+imm (atm P) P.
+(* leq, gr disallowed in programs *)
+
+nil : term.
+cons : term -> term -> term.
+
+append : term -> term -> term -> atom.
+split : term -> term -> term -> term -> atom.
+sort : term -> term -> atom.
+
+(* quicksort *)
+(*
+prog (all K \ atm (append nil K K)).
+prog (all X \ all L \ all K \ all M \
+       imp (atm (append L K M)) (atm (append (cons X L) K (cons X M)))).
+
+prog (all X \ atm (split X nil nil nil)).
+prog (all X \ all A \ all B \ all R \ all S \
+       imp (and (leq A X) (atm (split X R S B)))
+           (atm (split X (cons A R) (cons A S) B))).
+prog (all X \ all A \ all B \ all R \ all S \
+       imp (and (gr A X) (atm (split X R S B)))
+           (atm (split X (cons A R) S (cons A B)))).
+
+prog (atm (sort nil nil)).
+prog (all F \ all R \ all S \ all Sm \ all B \ all SS \ all BS \
+        imp (and (atm (split F R Sm B)) (and (atm (sort Sm SS))
+                 (and (atm (sort B BS)) (atm (append SS (cons F BS) S)))))
+            (atm (sort (cons F R) S))).
+*)
+
+(*
+#query 1 2 1
+solve (atm (append (cons (nat 0) nil) (cons (nat 1) (cons (nat 2) nil)) L)).
+
+#query 1 2 1
+solve (atm (sort (cons (nat 2) (cons (nat 1) (cons (nat 3) (cons (nat 0) nil)))) K)).
+*)
+
+(* mergesort *)
+msort : term -> term -> atom.
+mergesort : term -> term -> atom.
+pass : term -> term -> atom.
+merge : term -> term -> term -> atom.
+singletons : term -> term -> atom.
+
+prog (all L \ all M \ all Ls \
+  imp (and (atm (singletons L Ls)) (atm (mergesort Ls M)))
+      (atm (msort L M))).
+prog (atm (mergesort nil nil)).
+prog (all L \ atm (mergesort (cons L nil) L)).
+prog (all L1 \ all L2 \ all Ls \ all Ks \ all M \
+        imp (and (atm (pass (cons L1 (cons L2 Ls)) Ks))
+                 (atm (mergesort Ks M)))
+          (atm (mergesort (cons L1 (cons L2 Ls)) M))).
+prog (atm (pass nil nil)).
+prog (all L \
+       (atm (pass (cons L nil) (cons L nil)))).
+prog (all L1 \ all L2 \ all K \ all Ls \ all Ks \
+       (imp (and (atm (merge L1 L2 K)) (atm (pass Ls Ks)))
+          (atm (pass (cons L1 (cons L2 Ls)) (cons K Ks))))).
+prog (atm (singletons nil nil)).
+prog (all L \ all Ls \ all X \
+       (imp (atm (singletons L Ls))
+          (atm (singletons (cons X L) (cons (cons X nil) Ls))))).
+prog (all X \ all Y \ all L \ all Y \ all K \ all M \
+       (imp (and (leq X Y) (atm (merge L (cons Y K) M)))
+          (atm (merge (cons X L) (cons Y K) (cons X M))))).
+prog (all X \ all Y \ all L \ all K \ all M \
+       (imp (and (gr X Y) (atm (merge (cons X L) K M)))
+          (atm (merge (cons X L) (cons Y K) (cons Y M))))).
+prog (all X \ all L \
+       (atm (merge (cons X L) nil (cons X L)))).
+prog (all Y \ all K \
+       (atm (merge nil (cons Y K) (cons Y K)))).
+prog (atm (merge nil nil nil)).
+
+(*
+msort L M :- singletons L Ls, mergesort Ls M.
+mergesort [] [].
+mergesort [L] L.
+mergesort [L1|L2|Ls] M :- pass [L1|L2|Ls] Ks, mergesort Ks M.
+pass [] [].
+pass [L] [L].
+pass [L1|L2|Ls] [K|Ks] :- merge L1 L2 K, pass Ls Ks.
+singletons [] [].
+singletons [X|L] [[X]|Ls] :- singletons L Ls.
+merge [X|L] [Y|K] [X|M] :- leq X Y, merge L [Y|K] M.
+merge [X|L] [Y|K] [Y|M] :- gr X Y, merge [X|L] K M.
+merge [X|L] [] [X|L].
+merge [] [Y|K] [Y|K].
+merge [] [] [].
+*)
+
+#query 1 2 1
+solve (atm (msort (cons (nat 2) (cons (nat 1) (cons (nat 3) (cons (nat 0) nil)))) K)).
+
+(* program analysis *)
+
+interp : o.
+prt : int -> prop -> o.
+prtt : term -> o.
+
+interp o- prog D, write "(* ", write D, write " *)", nl,
+          write "%prove ", prt 0 D, write ".", nl,
+	  zero.
+
+prt N (all x \ D x)
+   o- pi x \ (* write "(", write "x", write N, write ")", *)
+        N1 is N+1,
+        ((prtt x o- write "X", write N) => prt N1 (D x)).
+prt N (imp G D) o- write "(", prt N G, write " -> ", prt N D, write ")".
+prt N (and G1 G2) o- write "(", prt N G1, write ")", write " & ",
+                     write "(", prt N G2, write ")".
+
+prt N (leq X Y) o- write "#".
+prt N (gr X Y) o- write "#".
+
+prtt (nil) o- write "1".
+prtt (cons X Y) o- (* write "item", *) prtt X, write " * ", prtt Y. (* !!! *)
+prtt (nat N) o- write "nat", write N.
+
+(* quicksort *)
+prt N (atm (sort X Y)) o- write "(", prtt X, write " o-o ", prtt Y, write ")".
+prt N (atm (split U X Y Z)) o- write "(", prtt Y, write " * ", prtt Z, write " o-o ", prtt X, write ")".
+prt N (atm (append X Y Z)) o- write "(", prtt X, write " * ", prtt Y, write " o-o ", prtt Z, write ")".
+
+(* mergesort *)
+prt N (atm (msort L K))
+  o- write "(", prtt L, write " o-o ", prtt K, write ")".
+prt N (atm (mergesort Ls Ks))
+  o- write "(", prtt Ls, write " o-o ", prtt Ks, write ")".
+prt N (atm (pass Ls Ks))
+  o- write "(", prtt Ls, write " o-o ", prtt Ks, write ")".
+prt N (atm (singletons L Ls))
+  o- write "(", prtt L, write " o-o ", prtt Ls, write ")".
+prt N (atm (merge L K M))
+  o- write "(", prtt L, write " * ", prtt K, write " o-o ", prtt M, write ")".

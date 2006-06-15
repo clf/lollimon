@@ -1,0 +1,10 @@
+An implementation of the analysis described in
+
+Dale Miller: Collection Analysis for Horn Clause Programs
+PPDP 2006
+
+The output format is suitable as input for the proposition
+theorem prover for linear logic written by Kaustuv Chaudhuri
+
+Scriptor: Frank Pfenning
+Thu Jun 15 11:38:27 2006
