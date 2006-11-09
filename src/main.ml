@@ -385,6 +385,10 @@ let rec go lin aff =
     parseCmd (lexer (Stream.of_channel stdin)) 
   with [ 
     Stream.Error e -> do { ps 0 (e^"\n\n"); go lin aff } |
+    Failure "int_of_string" -> 
+         do { ps 0 ("Did not find expected integer argument, " ^ 
+                    "ignoring...\n\n");
+              go lin aff } |
     Failure e -> raise (Failure e) |
     _ -> do { ps 0 ("Ignored previous...\n\n"); go lin aff }
   ]
