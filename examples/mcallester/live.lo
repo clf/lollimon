@@ -49,6 +49,9 @@ succ L L'',
 live W L''
 => {!live W L}.
 
+if L X L'
+=> {!live X L}.
+
 (* Example *)
 
 assign (l 1) (v 1) (op (v 2) (v 3)).
