@@ -1,8 +1,4 @@
-#load "lolli/perm.lo".
-
-#load "lolli/lists.lo".
-
-#load "lolli/lolliCop.lo".
+#load "lolli/sources.lo".
 
 #load "ldp/cml.lo".
 
@@ -13,3 +9,5 @@
 #load "atp/forward.lo".
 
 #load "atp/inverse1.lo".
+
+#load "cll/cll.lo".

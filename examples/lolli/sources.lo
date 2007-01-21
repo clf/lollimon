@@ -1,0 +1,3 @@
+#load "perm.lo".
+#load "lists.lo".
+#load "lolliCop.lo".

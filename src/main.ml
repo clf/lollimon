@@ -192,17 +192,30 @@ value rec readFile file lin aff =
         let _ = do {
           fairPreds.val := []; unOrderedPreds.val := []; ctx.val := []; mysignature.val := []; allModes.val := []
         } in
-        let _ = ps 0 ("Loading file "^file'^".\n") in
-        let (lRefs', aRefs') = readFile file' [] [] in 
+        let thisdir = Sys.getcwd() in
+        let _ = Sys.chdir (Filename.dirname file') in 
+        let newfile = Filename.basename file' in
+        let newdir = Sys.getcwd() in
+        let _ = ps 0 ("[Loading file "^Filename.concat newdir newfile^"]\n") in
+        let (lRefs', aRefs') = readFile newfile [] [] in 
+        let _ = ps 0 ("[Closing file "^Filename.concat newdir newfile^"]\n\n") in
+        let _ = Sys.chdir thisdir in
         do { 
+	  Sys.chdir thisdir;
           Stream.junk fstr; Stream.junk fstr; Stream.junk fstr; 
           linRefs.val := lRefs';
           affRefs.val := aRefs';
           parseFileLine fstr
       } |
       [(Kwd "#include",_); (String file',_); (Kwd ".",_)::_] -> 
-        let _ = ps 0 ("Including file "^file'^".\n") in
-        let (lRefs', aRefs') = readFile file' (linRefs.val@lin) (affRefs.val@aff) in 
+        let thisdir = Sys.getcwd() in
+        let _ = Sys.chdir (Filename.dirname file') in 
+        let newfile = Filename.basename file' in
+        let newdir = Sys.getcwd() in
+        let _ = ps 0 ("[Including file "^Filename.concat newdir newfile^"]\n") in
+        let (lRefs', aRefs') = readFile newfile (linRefs.val@lin) (affRefs.val@aff) in 
+        let _ = ps 0 ("[Closing file "^Filename.concat newdir newfile^"]\n\n") in
+        let _ = Sys.chdir thisdir in
         do { 
           Stream.junk fstr; Stream.junk fstr; Stream.junk fstr; 
           linRefs.val := lRefs' @ linRefs.val;
@@ -254,7 +267,7 @@ value rec readFile file lin aff =
 do {
   try do {
     go (lexer (Stream.of_channel fch));
-    ps 0 (file^" is Ok.\n\n");
+    ps 0 (file^" is Ok.\n");
   } 
   with [
     Stream.Error e -> do {
@@ -262,11 +275,11 @@ do {
       rejectFile()
     } |
     Stream.Failure -> do {
-      ps 0 ("Bad File: "^(posStr())^"\n\n"); 
+      ps 0 ("Bad File: "^(posStr())^"\n"); 
       rejectFile() 
     } |
     BadMode nm -> do {
-      ps 0 ("Bad mode for "^nm^" at "^(posStr())^"\n\n");
+      ps 0 ("Bad mode for "^nm^" at "^(posStr())^"\n");
       rejectFile()
     } |
     e -> do {close_in fch; raise e}
@@ -330,15 +343,30 @@ let rec go lin aff =
     [: `(Kwd "#clearsig",_) :] -> do { mysignature.val := []; go lin aff} |
 
     [: `(Kwd "#include",_); `(String file,_) :] ->
+      let thisdir = Sys.getcwd() in
+      let _ = Sys.chdir (Filename.dirname file) in 
+      let newfile = Filename.basename file in
+      let newdir = Sys.getcwd() in
+      let _ = ps 0 ("[Including file "^Filename.concat newdir newfile^"]\n") in
       let (lin',aff') = 
-        try readFile file lin aff with [Sys_error s -> do{ ps 0 (s^"\n\n"); ([], [])}]
+        try readFile newfile lin aff with [Sys_error s -> do{ ps 0 (s^"\n\n"); ([], [])}] in
+      let _ = ps 0 ("[Closing file "^Filename.concat newdir newfile^"]\n\n") in
+      let _ = Sys.chdir thisdir 
       in
-      go (lin @ lin') (aff @ aff') |
+      go (lin @ lin') (aff @ aff')
+     |
 
     [: `(Kwd "#load",_); `(String file,_) :] -> do {
       fairPreds.val := []; unOrderedPreds.val := []; ctx.val := []; mysignature.val := []; allModes.val := [];
+      let thisdir = Sys.getcwd() in
+      let _ = Sys.chdir (Filename.dirname file) in 
+      let newfile = Filename.basename file in
+      let newdir = Sys.getcwd() in
+      let _ = ps 0 ("[Loading file "^Filename.concat newdir newfile^"]\n") in
       let (lin',aff') = 
-        try readFile file [] [] with [Sys_error s -> do{ ps 0 (s^"\n\n"); ([], [])}]
+        try readFile newfile [] [] with [Sys_error s -> do{ ps 0 (s^"\n\n"); ([], [])}] in
+      let _ = ps 0 ("[Closing file "^Filename.concat newdir newfile^"]\n\n") in
+      let _ = Sys.chdir thisdir 
       in
       go lin' aff'
     } |
