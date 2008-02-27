@@ -1,0 +1,87 @@
+(* Simplified version of the simplytyped.lo example *)
+(* Rob Simmons *)
+
+atom : type.
+
+ty : type.
+arrow : ty -> ty -> ty.
+atp : atom -> ty.
+
+
+ctm : type.  (* Synthesizing canonical terms R *)
+ntm : type.  (* Checked normal terms N         *)
+
+var : ntm -> ctm.          (* R ::= x        *)
+atm : atom -> ctm.         (*     | c        *)
+app : ctm -> ntm -> ctm.   (*     | R N      *)
+
+can : ctm -> ntm.          (* N ::= R        *)
+lam : (ctm -> ntm) -> ntm. (*     | \x.N     *)
+
+synth : ctm -> ty -> o.
+check : ntm -> ty -> o.
+subtmN : ntm -> o.
+subtmR : ctm -> o.
+
+
+(* SUBTERMS *)
+subtmR (app R N) => {!subtmR R, !subtmN N}.
+subtmN (can R) => {!subtmR R}.
+subtmN (lam E) => {!subtmN (E (var (lam E)))}.
+
+
+(* SYNTHESIZING - FORWARD CHAINING *)
+
+synth R (arrow T1 T2) 
+   => subtmR (app R N) 
+   => check N T1              (* THIS RULE CAUSES NON-TERMINATION (?) *) 
+   => {!synth (app R N) T2}.
+
+(* CHECKING - BACKWARD CHAINING *)
+check (can R) T
+   <= synth R T.
+
+check (lam E) (arrow T1 T2)
+   <= (synth (var (lam E)) T1 => {check (E (var (lam E))) T2}).
+
+
+
+(* Natural numbers *)
+nat : atom. (* nat                                *)
+z : atom.   (* ::= z             - Zero           *)
+s : atom.   (*   | s (e)         - Successor      *)
+
+synth (atm z) (atp nat).
+synth (atm s) (arrow (atp nat) (atp nat)).
+
+
+(* Example 1 : \x.x *)
+
+#query 1 1 1 subtmN (lam (x \ can x)) => subtmN (E).
+#query 2 4 4 subtmN (lam (x \ can x)) => {subtmN (E)}.
+#query 1 4 4 subtmN (lam (x \ can x)) => {subtmR (E)}.
+
+
+
+(* Example 2 : \x.\y.s(x) *)
+
+#query 4 9 9 subtmN (lam (x \ lam (y \ can (app (atm s) (can x)))))
+              => {subtmN (E)}.
+#query 3 9 9 subtmN (lam (x \ lam (y \ can (app (atm s) (can x)))))
+              => {subtmR (E)}.
+
+
+
+(* Example 3 : \x.\y.y(x) *)
+
+#query 4 9 9 subtmN (lam (x \ lam (y \ can (app y (can x)))))
+              => {subtmN (E)}.
+#query 3 9 9 subtmN (lam (x \ lam (y \ can (app y (can x)))))
+              => {subtmR (E)}.
+
+
+
+(* Example 4 : Synthesizing type *)
+
+#query 4 9 9 subtmR (app (atm s) (can (app (atm s) (can (atm z)))))
+              => {synth E T}.

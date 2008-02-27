@@ -28,7 +28,7 @@ vpair : val -> val -> val.	(* value pairs *)
 lookup : int -> subst -> val -> o.
 lookup 1 (bind V S) V.
 lookup N (bind W S) V
- <= N > 1, N' is N-1, lookup N' S V.
+ <= N > 1, N' is (N - 1), lookup N' S V.
 
 compute : exp -> subst -> o.
 evalsto : exp -> subst -> val -> o.

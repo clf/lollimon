@@ -5,6 +5,7 @@ do not work at present.  Sometimes, this is not noted in
 the file, so your mileage may vary.
 
 atp - automated theorem proving
+bidir - bidirectional typechecking
 clf - meta-interpreter for the first-order fragment of CLF
 cll - interpreter for functional/concurrent language by Deepak Garg
 gm - saturation examples from [Ganzinger & McAllester, ICLP'02]
