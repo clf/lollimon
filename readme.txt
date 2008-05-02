@@ -28,7 +28,8 @@ To start interactively:
   :
   # Main.go true;;
 
-If you want to turn off type-checking, use "go False" to start the system.
+If you want to turn off type-checking, use "Main.go false;;" to start the 
+system.
 
 The interpreter recognizes the following commands:
 
