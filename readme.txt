@@ -12,14 +12,21 @@ revised OCaml syntax. The code was written by Jeff Polakow.
 
 --------------------------------------------------------
 
-To start system (from lollimon/src directory):
+To build the binary:
 
-  unix_prompt> ocaml camlp4r.cma
-  
-  # #use "main.ml";
+  $ cd lollimon
+  $ make binary
   :
   :
-  # go True;
+  $ ./lollimon
+
+To start interactively:
+
+  $ cd lollimon
+  $ make interactive 
+  :
+  :
+  # Main.go true;;
 
 If you want to turn off type-checking, use "go False" to start the system.
 

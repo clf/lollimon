@@ -31,7 +31,9 @@ value write t v kf ks = let old = t.val in do {
 Load up all "module" code
 ****************************************)
 
-#use "misc.ml";
+open Misc;
+
+value ps = pss;
 
 #use "tags.ml";
 
@@ -65,35 +67,35 @@ let solns = ref 0 in
 let attempt = ref 1 in
 let rec ks v kf = match auto with [
   None -> do {
-    ps 0 "Success\n";
-    if constraints.val = [] then () else ps 0 ("constraints: "^(constraints2str())^"\n");
+    psc 0 (fun () -> "Success\n");
+    if constraints.val = [] then () else psc 0 (fun () -> "constraints: "^(constraints2str())^"\n");
 (*
-    if evars = [] then ps 0 "\n"
+    if evars = [] then psc 0 "\n"
     else 
 *)
     do {
-      ps 0 ("with ["^(evarBind2str sub)^"]\n");
-      ps 0 "More? ";
-      if read_line() = "y" then kf (Fail "retry") else (ps 0 "\n")
+      psc 0 (fun () -> "with ["^(evarBind2str sub)^"]\n");
+      psc 0 (fun () -> "More? ");
+      if read_line() = "y" then kf (Fail "retry") else (psc 0 (fun () -> "\n"))
     }  
   } |
   Some (expect,tries,maxAttempt) -> do {
     incr solns;
-    ps 0 ("Attempt "^(soi attempt.val)^", Solution "^(soi solns.val)^
+    psc 0 (fun () -> "Attempt "^(soi attempt.val)^", Solution "^(soi solns.val)^
           " with ["^(evarBind2str sub)^"]\n");
     if solns.val > expect then do {
-      ps 0 "Too many solutions.\n";
+      pss 0 "Too many solutions.\n";
       kf (FFail (Fail "too many solutions"))
     }
-    else if solns.val = tries then ps 0 "Success.\n"
+    else if solns.val = tries then pss 0 "Success.\n"
     else kf (Fail "next solution")
   }
 ] in
 let rec kf = fun [
   Fail s -> match auto with [
-    None -> ps 0 ("Failure"^(if traceLevel.val > 1 then  "- "^s else "")^"\n\n") |
+    None -> psc 0 (fun () -> "Failure"^(if traceLevel.val > 1 then  "- "^s else "")^"\n\n") |
     Some (expect,tries,maxAttempt) ->
-      if expect = solns.val then ps 0 "Success.\n" 
+      if expect = solns.val then psc 0 (fun () -> "Success.\n")
       else if attempt.val < maxAttempt then do {
         solns.val := 0; 
         incr attempt;
@@ -103,7 +105,7 @@ let rec kf = fun [
         solve 0.0 1.0 2.0 3.0 s d (ExpSub f sub []) kf ks 
       }
       else do {
-        ps 0 ("Failed to find "^(soi (min expect tries))^" solutions within "^
+        psc 0 (fun () -> "Failed to find "^(soi (min expect tries))^" solutions within "^
               (soi maxAttempt)^" attempts.\n");
         raise Stream.Failure
       }
@@ -120,14 +122,14 @@ let rec kf = fun [
         solve 0.0 1.0 2.0 3.0 s d (ExpSub f sub []) kf ks 
       }
       else do {
-        ps 0 ("Failed to find "^(soi (min expect tries))^" solutions within "^
+        psc 0 (fun () -> "Failed to find "^(soi (min expect tries))^" solutions within "^
               (soi maxAttempt)^" attempts.\n");
         raise Stream.Failure
       }
   ] |
   FFail s -> raise (Failure "query got an FFail 2") |
   Problem s -> do {
-    ps 0 ("Query aborted due to: "^s^"\n\n");
+    psc 0 (fun () -> "Query aborted due to: "^s^"\n\n");
     raise Stream.Failure
   }
 ] in
@@ -136,7 +138,7 @@ let q = ExpSub f sub [] in
 let _ = match auto with [
   None -> () |
   Some (expect,tries,attempt) ->
-    ps 0 ("Looking for "^(soi (min expect tries))^
+    psc 0 (fun () -> "Looking for "^(soi (min expect tries))^
           " solutions to query: "^(term2str q)^"\n") 
 ] in
 solve 0.0 1.0 2.0 3.0 s d q kf ks 
@@ -196,9 +198,9 @@ value rec readFile file lin aff =
         let _ = Sys.chdir (Filename.dirname file') in 
         let newfile = Filename.basename file' in
         let newdir = Sys.getcwd() in
-        let _ = ps 0 ("[Loading file "^Filename.concat newdir newfile^"]\n") in
+        let _ = psc 0 (fun () -> "[Loading file "^Filename.concat newdir newfile^"]\n") in
         let (lRefs', aRefs') = readFile newfile [] [] in 
-        let _ = ps 0 ("[Closing file "^Filename.concat newdir newfile^"]\n\n") in
+        let _ = psc 0 (fun () -> "[Closing file "^Filename.concat newdir newfile^"]\n\n") in
         let _ = Sys.chdir thisdir in
         do { 
 	  Sys.chdir thisdir;
@@ -212,9 +214,9 @@ value rec readFile file lin aff =
         let _ = Sys.chdir (Filename.dirname file') in 
         let newfile = Filename.basename file' in
         let newdir = Sys.getcwd() in
-        let _ = ps 0 ("[Including file "^Filename.concat newdir newfile^"]\n") in
+        let _ = psc 0 (fun () -> "[Including file "^Filename.concat newdir newfile^"]\n") in
         let (lRefs', aRefs') = readFile newfile (linRefs.val@lin) (affRefs.val@aff) in 
-        let _ = ps 0 ("[Closing file "^Filename.concat newdir newfile^"]\n\n") in
+        let _ = psc 0 (fun () -> "[Closing file "^Filename.concat newdir newfile^"]\n\n") in
         let _ = Sys.chdir thisdir in
         do { 
           Stream.junk fstr; Stream.junk fstr; Stream.junk fstr; 
@@ -267,19 +269,19 @@ value rec readFile file lin aff =
 do {
   try do {
     go (lexer (Stream.of_channel fch));
-    ps 0 (file^" is Ok.\n");
+    psc 0 (fun () -> file^" is Ok.\n");
   } 
   with [
     Stream.Error e -> do {
-      ps 0 (e^"\n\n"); 
+      psc 0 (fun () -> e^"\n\n"); 
       rejectFile()
     } |
     Stream.Failure -> do {
-      ps 0 ("Bad File: "^(posStr())^"\n"); 
+      psc 0 (fun () -> "Bad File: "^(posStr())^"\n"); 
       rejectFile() 
     } |
     BadMode nm -> do {
-      ps 0 ("Bad mode for "^nm^" at "^(posStr())^"\n");
+      psc 0 (fun () -> "Bad mode for "^nm^" at "^(posStr())^"\n");
       rejectFile()
     } |
     e -> do {close_in fch; raise e}
@@ -305,7 +307,7 @@ let rec go lin aff =
       do {Sys.chdir dir; go lin aff} |
 
     [: `(Kwd "#pwd",_) :] -> 
-      do {ps 0 ((Sys.getcwd ())^"\n"); go lin aff} |
+      do {psc 0 (fun () -> (Sys.getcwd ())^"\n"); go lin aff} |
 
     [: `(Kwd "#mode",_); `(Ident p,_); modes = parseModes p :] -> 
       do { allModes.val := [(p,modes)::allModes.val]; go lin aff } |
@@ -320,21 +322,21 @@ let rec go lin aff =
       do { traceLevel.val := (int_of_string n); go lin aff } |
 
     [: `(Kwd "#signature",_) :] -> do { 
-        List.iter (fun x -> ps 0 ((decl2str x)^".\n")) (List.rev mysignature.val); 
-        ps 0 "\n";
+        List.iter (fun x -> psc 0 (fun () -> (decl2str x)^".\n")) (List.rev mysignature.val); 
+        psc 0 (fun () -> "\n");
         go lin aff 
       } |
     [: `(Kwd "#allsig",_) :] -> do { 
-        List.iter (fun x -> ps 0 ((decl2str x)^".\n")) 
+        List.iter (fun x -> psc 0 (fun () -> (decl2str x)^".\n")) 
                   (signature.val @ (List.rev mysignature.val)); 
-        ps 0 "\n";
+        psc 0 (fun () -> "\n");
         go lin aff 
       } |
 
     [: `(Kwd "#contextl",_) :] -> 
-      do { showStr None None True True 0 ctx.val tagTyp2str; ps 0 "\n"; go lin aff } |
+      do { showStr None None True True 0 ctx.val tagTyp2str; psc 0 (fun () -> "\n"); go lin aff } |
     [: `(Kwd "#context",_) :] -> 
-      do { showStr None None True False 0 ctx.val tagTyp2str; ps 0 "\n"; go lin aff } |
+      do { showStr None None True False 0 ctx.val tagTyp2str; psc 0 (fun () -> "\n"); go lin aff } |
 
     [: `(Kwd "#clear",_) :] -> do { 
       fairPreds.val := []; unOrderedPreds.val := []; ctx.val := []; allModes.val := []; mysignature.val := []; go [] []
@@ -347,10 +349,10 @@ let rec go lin aff =
       let _ = Sys.chdir (Filename.dirname file) in 
       let newfile = Filename.basename file in
       let newdir = Sys.getcwd() in
-      let _ = ps 0 ("[Including file "^Filename.concat newdir newfile^"]\n") in
+      let _ = psc 0 (fun () -> "[Including file "^Filename.concat newdir newfile^"]\n") in
       let (lin',aff') = 
-        try readFile newfile lin aff with [Sys_error s -> do{ ps 0 (s^"\n\n"); ([], [])}] in
-      let _ = ps 0 ("[Closing file "^Filename.concat newdir newfile^"]\n\n") in
+        try readFile newfile lin aff with [Sys_error s -> do{ psc 0 (fun () -> s^"\n\n"); ([], [])}] in
+      let _ = psc 0 (fun () -> "[Closing file "^Filename.concat newdir newfile^"]\n\n") in
       let _ = Sys.chdir thisdir 
       in
       go (lin @ lin') (aff @ aff')
@@ -362,10 +364,10 @@ let rec go lin aff =
       let _ = Sys.chdir (Filename.dirname file) in 
       let newfile = Filename.basename file in
       let newdir = Sys.getcwd() in
-      let _ = ps 0 ("[Loading file "^Filename.concat newdir newfile^"]\n") in
+      let _ = psc 0 (fun () -> "[Loading file "^Filename.concat newdir newfile^"]\n") in
       let (lin',aff') = 
-        try readFile newfile [] [] with [Sys_error s -> do{ ps 0 (s^"\n\n"); ([], [])}] in
-      let _ = ps 0 ("[Closing file "^Filename.concat newdir newfile^"]\n\n") in
+        try readFile newfile [] [] with [Sys_error s -> do{ psc 0 (fun () -> s^"\n\n"); ([], [])}] in
+      let _ = psc 0 (fun () -> "[Closing file "^Filename.concat newdir newfile^"]\n\n") in
       let _ = Sys.chdir thisdir 
       in
       go lin' aff'
@@ -402,23 +404,23 @@ let rec go lin aff =
           mysignature.val := [(c,(ty,n'))::mysignature.val]; 
           go lin aff
         }
-        else do { ps 0 "Ignoring declaration...\n"; go lin aff}
+        else do { pss 0 "Ignoring declaration...\n"; go lin aff}
     ]
   ] in
   let _ = timeStamp.val := 0 in
   let _ = evarIDCounter.val := 0 in
-  let _ = ps 0 ("LolliMon"^(if useTypes.val then "" else "_untyped")^"> ") in 
+  let _ = psc 0 (fun () -> "LolliMon"^(if useTypes.val then "" else "_untyped")^"> ") in 
   let _ = flush stdout in
   try 
     parseCmd (lexer (Stream.of_channel stdin)) 
   with [ 
-    Stream.Error e -> do { ps 0 (e^"\n\n"); go lin aff } |
+    Stream.Error e -> do { psc 0 (fun () -> e^"\n\n"); go lin aff } |
     Failure "int_of_string" -> 
-         do { ps 0 ("Did not find expected integer argument, " ^ 
+         do { psc 0 (fun () -> "Did not find expected integer argument, " ^ 
                     "ignoring...\n\n");
               go lin aff } |
     Failure e -> raise (Failure e) |
-    _ -> do { ps 0 ("Ignored previous...\n\n"); go lin aff }
+    _ -> do { pss 0 "Ignored previous...\n\n"; go lin aff }
   ]
 in
 go [] [];
