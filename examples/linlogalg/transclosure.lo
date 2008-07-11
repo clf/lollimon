@@ -1,0 +1,20 @@
+(* Transitive closure - "path/path" definition *)
+(* Rob Simmons *)
+
+v : type.
+edge : v -> v -> o.
+path : v -> v -> o.
+
+edge X Y  => {!(path X Y)}.
+path X Y => path Y Z => {!(path X Z)}.
+
+a : v. b : v. c : v. d : v. e : v.
+
+(* Try to find up to 25 solutions for path(X,Y), and fail if 
+ * the number of solutions is different than 20. 
+ * Make at most one attempt. *)
+#query 20 25 1
+  edge a b => edge a d => edge b c =>
+  edge c a => edge c b => edge d a =>
+  edge e b => edge e d =>
+  {!(path X Y)}.

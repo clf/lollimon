@@ -1,0 +1,21 @@
+(* Arbitrary spanning trees *)
+(* Rob Simmons *)
+
+v : type.
+edge : v -> v -> o.
+tree : v -> v -> o.
+vertex : v -> o.
+intree : v -> o.
+
+a : v. b : v. c : v. d : v. e : v.
+
+edge X Y => {!(edge X Y)}.
+vertex a -o {!(intree a)}.
+edge X Y => intree X => vertex Y -o {!(intree Y), !(tree X Y)}.
+
+#query 4 5 1
+  edge a b => edge a c => 
+  edge a d => edge b c => 
+  edge b e => edge d e =>
+  vertex a -o vertex b -o vertex c -o vertex d -o vertex e -o
+  {!tree X Y}.
