@@ -21,3 +21,8 @@ listcollect, listcollect2
 heapcollect
   Arbitrary heap collection
   Figure 5 in tech report, figure 4b on page 340 of the ICALP paper
+
+turing
+  Turing machines
+  Figure 14 in the tech report, with some example Turing machines from
+  Wikipedia.

@@ -1,0 +1,61 @@
+(* Turing machine specification *)
+(* Rob Simmons *)
+
+(*** Constants ***)
+id : type. (* Used to identifiy machine states *)
+a : id. b : id. c : id. 
+m1 : id. m2 : id. m3 : id. m4 : id. m5 : id. halt : id.
+
+symbol : type.
+s0 : symbol. s1 : symbol. 
+
+direction : type.
+l : direction.
+r : direction.
+
+(*** Atomic propositions ***)
+state : list symbol -> symbol -> list symbol -> id -> o.
+    (* Linear: A pre-write machine state *)
+move  : list symbol -> symbol -> list symbol -> id -> direction -> o.
+    (* Linear: A post-write, pre-move machine state *)
+
+transition : symbol -> id -> symbol -> id -> direction -> o.
+    (* Pers:   A fact describing the transition relation of the machine *)
+
+(*** Rules ***)
+transition C S C' S' M => state L C R S -o {move L C' R S' M}.
+move L         C (C' :: R) S l -o state (C :: L) C' R        S.
+move L         C nil       S l -o state (C :: L) s0 nil      S. 
+move (C' :: L) C R         S r -o state L        C' (C :: R) S.
+move nil       C R         S r -o state nil      s0 (C :: R) S. 
+
+(*** Tests ***)
+
+(* Some examples of Turing machines, from Wikipedia: 
+ * en.wikipedia.org/w/index.php?title=Turing_machine_examples&oldid=176398864 *)
+
+(* 3 state, 2 symbol busy beaver, as described by
+ * http://en.wikipedia.org/w/index.php?title=Turing_machine&oldid=224611204
+ * 
+ * Look for 2 solutions
+ * Succeed only if 1 solutions are found
+ * Only give it 1 try *)
+#query 1 2 1
+transition s0 a s1 b r => transition s0 b s1 a l => transition s0 c s1 b l =>
+transition s1 a s1 c l => transition s1 b s1 b r => (*transition s1 c s1 HALT*)
+state nil s0 nil a -o 
+{state L C R State}.
+
+(* Copy subroutine - copies, in this case, "five"
+ * 
+ * Look for 2 solutions
+ * Succeed only if 1 solutions are found
+ * Only give it 1 try *)
+#query 1 2 1 
+(* transition s0 m1 HALT *) transition s1 m1 s0 m2 r => 
+transition s0 m2 s0 m3 r => transition s1 m2 s1 m2 r => 
+transition s0 m3 s1 m4 l => transition s1 m3 s1 m3 r => 
+transition s0 m4 s0 m5 l => transition s1 m4 s1 m4 l => 
+transition s0 m5 s1 m1 r => transition s1 m5 s1 m5 l => 
+state (s1 :: s1 :: s1 :: s1 :: nil) s1 nil m1 -o
+{state L C R State}.
