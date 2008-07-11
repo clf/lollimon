@@ -1,0 +1,23 @@
+
+
+transclosure, transclosure2
+  Transitive closure of a directed graph
+  The introductury example for the ICALP presentation
+
+spantree
+  Finding a rooted spanning tree of an undirected graph
+  Figure 3 in the tech report, the main example in the ICALP presentation, and 
+  Figure 3 on page 340 of the ICALP paper
+
+tournament
+  Random single-eliminiation tournament
+  Figure 2 on page 339 of the ICALP paper
+
+listcollect, listcollect2 
+  Two programs for arbitrary list colleciton
+  Figure 4 in tech report, and the former is figure 4a on page 340 of the
+  ICALP paper.
+
+heapcollect
+  Arbitrary heap collection
+  Figure 5 in tech report, figure 4b on page 340 of the ICALP paper

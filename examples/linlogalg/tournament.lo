@@ -1,0 +1,76 @@
+(* The single-elimination tournament from Linear Logical Alogorithms *)
+(* Rob Simmons *)
+
+(*** Constants ***)
+
+(* Natural numbers are necessary for describing the number of wins *)
+n : type.
+z : n. 
+s : n -> n.
+
+(* Constants representing teams *)
+team : type.
+a : team. b : team. c : team. d : team.
+e : team. f : team. g : team. h : team.
+i : team. j : team. k : team.
+
+
+(*** Atomic propositions ***)
+wins : team -> n -> o.        (* Linear: Current state of team in tournament *) 
+order : team -> team -> o.    (* Pers:   Partial ordering on teams *)
+won : team -> team -> n -> o. (* Pers:   Winning team in round N *)
+
+
+(*** Rules ***)
+
+wins X N -o wins Y N -o {wins X (s N), !won X Y N}.
+
+won X Y N => {!order X Y}.
+
+(* Note that this is the "less efficient" path/path transitive closure. *)
+order X Y => order Y Z => {!order X Z}.
+
+
+(*** Tests ***)
+
+(* This example gives a good indication of the current awkwardness of
+ * describing LLA's in Lollimon, because in order for a query to succeed,
+ * the conclusion **must** account for all remaining linear resources
+ * after execution, which is why we need to have the portion 
+ * "wins Winner Final" in each conclusion; the round robin tournament will
+ * end with at least one remining linear resource, the tournament's victor. *)
+
+(* Four player tournament
+ * Outputs the final transitve better/worse relation
+ * 
+ * Look for 10 solutions
+ * Succeed only if 5 solutions are found
+ * Only give it 1 try *)
+#query 4 10 1
+  wins a z -o wins b z -o wins c z -o wins d z -o
+  {!order Better Worse, wins Winner Final}.
+
+(* Eight player tournament 
+ * Outputs the final winner/loser/round relation
+ * 
+ * Look for up to 10 solutions
+ * Succeed only if 7 solutions are found
+ * Only give it one try *)
+#query 7 10 1
+  wins a z -o wins b z -o wins c z -o wins d z -o
+  wins e z -o wins f z -o wins g z -o wins h z -o 
+  {!won Win Lose Rnd, wins Winner Final}.
+
+(* Eleven player tournament
+ * Outputs the final three teams that get "left out" of the tournament - 
+ * one in round 3, one in round 1, one in round 0, which encodes
+ * the binary number 1011, or eleven.
+ *
+ * Look for up to 1 solution
+ * Succeed only if 1 solution is found 
+ * Only give it one try *)
+#query 1 1 1
+  wins a z -o wins b z -o wins c z -o wins d z -o
+  wins e z -o wins f z -o wins g z -o wins h z -o 
+  wins i z -o wins j z -o wins k z -o
+  {wins T1 R1, wins T2 R2, wins T3 R3}.

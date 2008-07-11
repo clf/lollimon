@@ -1,0 +1,19 @@
+(* DESCRIPTION *)
+(* Rob Simmons *)
+
+(*** Constants ***)
+
+
+(*** Atomic propositions ***)
+(* Linear:  *) 
+(* Pers:    *)
+
+(*** Rules ***)
+
+
+(*** Tests ***)
+
+(* Look for M solutions
+ * Succeed only if N solutions are found
+ * Only give it P try *)
+#query N M P

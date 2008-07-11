@@ -1,0 +1,25 @@
+(* List collection into a successor relation *)
+(* Rob Simmons *)
+
+(*** Constants ***)
+
+i : type.
+a : i. b : i. c : i. d : i. e : i. f : i. g : i. h : i.
+
+(*** Atomic propositions ***)
+item : i -> o.      (* Linear: Arbitrary items *) 
+last : i -> o.      (* Linear: The last item in the successor relation *) 
+succ : i -> i -> o. (* Pers:   The successor relation on items *)
+
+(*** Rules ***)
+item X -o last Y -o {last X,!succ X Y}.
+
+(*** Tests ***)
+
+(* Look for up to 20 solutions
+ * Succeed only if 7 solutions are found
+ * Only give it 1 try *)
+#query 7 20 1
+  item a -o item f -o item g -o item b -o item c -o item d -o item h -o
+  last e -o
+  {!succ X Y, last L}.

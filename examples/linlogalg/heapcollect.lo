@@ -1,0 +1,53 @@
+(* Heap collection  into binary-heap-like-trees *)
+(* Rob Simmons *)
+
+(*** Constants ***)
+
+n : type.
+z : n.
+s : n -> n.
+
+i : type.
+a : i. b : i. c : i. d : i. e : i. f : i. g : i. h : i.
+
+t : type.
+node : i -> list t -> t.
+
+(*** Atomic propositions ***)
+item : i -> o.      (* Linear: Arbitrary items *) 
+tree : n -> t -> o. (* Linear: A current binary heap, w/ depth recorded *) 
+
+(*** Rules ***)
+item X -o {tree z (node X nil)}.
+tree N (node X TS) -o tree N T -o {tree (s N) (node X (T :: TS))}.
+
+(*** Tests ***)
+
+(* 4 items - one possible result is this tree of depth 3 and width 2
+ * c - d - a 
+ *   \
+ *    b
+ * 
+ * Look for up to 2 solutions
+ * Succeed only if 1 solution is found
+ * Only give it 1 try *)
+#query 1 2 1
+ item a -o item b -o item c -o item d -o
+ {tree N1 T1}.
+
+(* 64 items - you can tell that this doesn't run anywhere near as fast
+ * on the Lollimon interpreter as LLA suggests it should!
+ * 
+ * Look for up to 2 solutions
+ * Succeed only if 1 solution is found
+ * Only give it 1 try *)
+#query 1 2 1
+ item a -o item b -o item c -o item d -o item e -o item f -o item g -o item h -o
+ item a -o item b -o item c -o item d -o item e -o item f -o item g -o item h -o
+ item a -o item b -o item c -o item d -o item e -o item f -o item g -o item h -o
+ item a -o item b -o item c -o item d -o item e -o item f -o item g -o item h -o
+ item a -o item b -o item c -o item d -o item e -o item f -o item g -o item h -o
+ item a -o item b -o item c -o item d -o item e -o item f -o item g -o item h -o
+ item a -o item b -o item c -o item d -o item e -o item f -o item g -o item h -o
+ item a -o item b -o item c -o item d -o item e -o item f -o item g -o item h -o
+ {tree N1 T1}.

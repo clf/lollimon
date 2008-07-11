@@ -13,6 +13,9 @@ edge X Y => {!(edge X Y)}.
 vertex a -o {!(intree a)}.
 edge X Y => intree X => vertex Y -o {!(intree Y), !(tree X Y)}.
 
+(* Look for up to five solutions
+ * Succeed only if I find four solutions
+ * Only give it one try *)
 #query 4 5 1
   edge a b => edge a c => 
   edge a d => edge b c => 

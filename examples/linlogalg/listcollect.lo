@@ -1,0 +1,24 @@
+(* List collection into a structured term *)
+(* Rob Simmons *)
+
+(*** Constants ***)
+
+i : type.
+a : i. b : i. c : i. d : i. e : i. f : i. g : i. h : i.
+
+(*** Atomic propositions ***)
+item : i -> o.      (* Linear: Arbitrary items *) 
+list : list i -> o. (* Linear: Lists *) 
+
+(*** Rules ***)
+item X -o list L -o {list (X :: L)}.
+
+(*** Tests ***)
+
+(* Look for up to 2 solutions
+ * Succeed only if 1 solution is found
+ * Only give it 1 try *)
+#query 1 2 1
+  item a -o item a -o item a -o item b -o item c -o item d -o item d -o
+  list nil -o
+  {list L}.
