@@ -11,6 +11,8 @@ cll - interpreter for functional/concurrent language by Deepak Garg
 gm - saturation examples from [Ganzinger & McAllester, ICLP'02]
 graph - simple graph algorithms
 ldp - linear destination passing style examples
+linlogalg - linear logical algorithms examples [Simmons & Pfenning, ICALP'08]
+         see http://www.cs.cmu.edu/~rjsimmon/papers/simmons08linlogalg.html
 lolli - examples from Lolli
 mcallester - saturation examples from [McAllester, JACM 2002]
 misc - miscellaneous examples
